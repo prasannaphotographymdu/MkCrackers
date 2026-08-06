@@ -1,10 +1,11 @@
 // Currency formatting utility for Indian Rupees (₹)
-export function formatINR(amount: number): string {
+export function formatINR(amount: number | undefined | null): string {
+  const num = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 2
-  }).format(amount);
+  }).format(num);
 }
 
 // Clean number formatting without currency symbol

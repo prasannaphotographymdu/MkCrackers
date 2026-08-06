@@ -19,10 +19,27 @@ import {
 } from './lib/firebase';
 
 export default function App() {
+  // Check if current hostname or path is for admin (e.g., admin.mkcrackers.in or /admin or #admin)
+  const checkIsAdminHostOrPath = () => {
+    if (typeof window === 'undefined') return false;
+    const host = window.location.hostname.toLowerCase();
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    const search = window.location.search.toLowerCase();
+    return (
+      host.startsWith('admin.') ||
+      host.includes('admin.mkcrackers.in') ||
+      path.startsWith('/admin') ||
+      hash.includes('admin') ||
+      search.includes('view=admin')
+    );
+  };
+
   // Views & Auth: 'landing' (Default Company Home), 'shop' (Online Store), 'admin' (Dashboard)
-  const [view, setView] = useState<'landing' | 'shop' | 'admin'>('landing');
+  const [view, setView] = useState<'landing' | 'shop' | 'admin'>(() =>
+    checkIsAdminHostOrPath() ? 'admin' : 'landing'
+  );
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminTab, setAdminTab] = useState<AdminTab>('dashboard');
 
   // Shop Data State
@@ -53,14 +70,28 @@ export default function App() {
 
   // Initial Data Fetch & Firestore Real-time Synchronization
   useEffect(() => {
-    // 1. Seed initial data to Firestore if empty
+    // 1. Check if admin route
+    if (checkIsAdminHostOrPath()) {
+      setView('admin');
+    }
+
+    const handleLocationChange = () => {
+      if (checkIsAdminHostOrPath()) {
+        setView('admin');
+      }
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+
+    // 2. Seed initial data to Firestore if empty
     seedFirestoreIfEmpty();
 
-    // 2. Fallback REST API initial fetch
+    // 3. Fallback REST API initial fetch
     fetchShopCatalog();
     fetchShopInfo();
 
-    // 3. Real-time Firestore Subscriptions
+    // 4. Real-time Firestore Subscriptions
     const unsubProds = subscribeProducts((liveProducts) => {
       if (liveProducts && liveProducts.length > 0) {
         setProducts(liveProducts.filter((p) => p.status === 'active'));
@@ -80,6 +111,8 @@ export default function App() {
     });
 
     return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
       unsubProds();
       unsubCats();
       unsubShop();
@@ -255,15 +288,18 @@ export default function App() {
   // Admin Auth handlers
   const handleAdminLoginSuccess = (token: string) => {
     setIsAdminLoggedIn(true);
-    setIsAdminLoginOpen(false);
     setView('admin');
     showToast('success', 'Admin Authenticated', 'Welcome to Store Manager Portal.');
   };
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
-    setView('landing');
-    showToast('info', 'Logged Out', 'Returned to public landing page.');
+    if (checkIsAdminHostOrPath()) {
+      setView('admin');
+    } else {
+      setView('landing');
+    }
+    showToast('info', 'Logged Out', 'Returned to login page.');
   };
 
   return (
@@ -279,7 +315,6 @@ export default function App() {
           if (targetView === 'shop') fetchShopCatalog();
         }}
         isAdminLoggedIn={isAdminLoggedIn}
-        onOpenAdminLogin={() => setIsAdminLoginOpen(true)}
         onAdminLogout={handleAdminLogout}
         cartTotalItems={cartTotalItems}
         cartTotalAmount={cartTotalAmount}
@@ -306,7 +341,6 @@ export default function App() {
             setView('shop');
             fetchShopCatalog();
           }}
-          onOpenAdminLogin={() => setIsAdminLoginOpen(true)}
         />
       ) : view === 'shop' ? (
         <PublicShop
@@ -318,7 +352,7 @@ export default function App() {
           onClearCart={handleClearCart}
           shopDetails={shopDetails}
         />
-      ) : (
+      ) : isAdminLoggedIn ? (
         <AdminPortal
           onLogout={handleAdminLogout}
           onShowToast={showToast}
@@ -326,6 +360,11 @@ export default function App() {
           onTabChange={setAdminTab}
           shopDetails={shopDetails}
           onSaveShopDetails={handleSaveShopDetails}
+        />
+      ) : (
+        <AdminLoginModal
+          isPage={true}
+          onLoginSuccess={handleAdminLoginSuccess}
         />
       )}
 
@@ -351,12 +390,6 @@ export default function App() {
         enquiry={submittedEnquiry}
         onClose={() => setSubmittedEnquiry(null)}
         shopDetails={shopDetails}
-      />
-
-      <AdminLoginModal
-        isOpen={isAdminLoginOpen}
-        onClose={() => setIsAdminLoginOpen(false)}
-        onLoginSuccess={handleAdminLoginSuccess}
       />
     </div>
   );

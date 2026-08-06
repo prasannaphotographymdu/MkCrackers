@@ -309,20 +309,51 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         throw new Error('Static hosting fallback');
       }
     } catch (err) {
+      const processedItems = (orderPayload.items || []).map((i: any) => {
+        const prod = products.find((p) => p.id === i.productId);
+        const productName = i.productName || prod?.name || 'Firecracker Item';
+        const sku = i.sku || prod?.sku || 'SKU-000';
+        const qty = Number(i.qty) || 1;
+        const unitPrice = Number(i.unitPrice) || prod?.sellingPrice || 0;
+        const gstPercent = Number(i.gstPercent) || prod?.gstPercent || 18;
+        const lineTotal = Number(i.amount) || (qty * unitPrice);
+        const basePrice = lineTotal / (1 + gstPercent / 100);
+        const itemGst = lineTotal - basePrice;
+        return {
+          productId: i.productId || prod?.id || '',
+          productName,
+          sku,
+          qty,
+          unitPrice,
+          gstPercent,
+          gstAmount: Number(itemGst.toFixed(2)),
+          amount: lineTotal
+        };
+      });
+
+      const subtotalCalc = processedItems.reduce((sum: number, i: any) => sum + (i.amount / (1 + i.gstPercent / 100)), 0);
+      const gstCalc = processedItems.reduce((sum: number, i: any) => sum + i.gstAmount, 0);
+      const totalCalc = processedItems.reduce((sum: number, i: any) => sum + i.amount, 0);
+
       data = {
         id: `POS-${Date.now().toString().slice(-6)}`,
         billNumber: `POS-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
         customerName: orderPayload.customerName || 'Walk-in Customer',
         customerPhone: orderPayload.customerPhone || orderPayload.phone || '',
-        subtotal: orderPayload.subtotal || 0,
-        gstAmount: orderPayload.gstAmount || 0,
+        subtotal: orderPayload.subtotal ?? Number(subtotalCalc.toFixed(2)),
+        gstAmount: orderPayload.gstAmount ?? Number(gstCalc.toFixed(2)),
         discountAmount: orderPayload.discountAmount || 0,
-        grandTotal: orderPayload.grandTotal || orderPayload.totalAmount || 0,
+        grandTotal: orderPayload.grandTotal || orderPayload.totalAmount || Math.max(0, Math.round(totalCalc - (orderPayload.discountAmount || 0))),
         paymentMode: orderPayload.paymentMode || 'Cash',
-        items: orderPayload.items || [],
+        cashAmount: orderPayload.cashAmount,
+        upiAmount: orderPayload.upiAmount,
+        upiRefNo: orderPayload.upiRefNo,
+        items: processedItems,
         createdAt: new Date().toISOString()
       };
     }
+
+    setOfflineOrders((prev) => [data, ...prev]);
 
     try {
       await saveOfflineOrderToFirestore(data);

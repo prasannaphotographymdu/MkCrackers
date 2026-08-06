@@ -184,19 +184,38 @@ export const POSBilling: React.FC<POSBillingProps> = ({
 
     try {
       setIsSubmitting(true);
+      const processedItems = cartItems.map((it) => {
+        const lineTotal = it.unitPrice * it.qty;
+        const gstPercent = it.product.gstPercent || 18;
+        const basePrice = lineTotal / (1 + gstPercent / 100);
+        const itemGst = lineTotal - basePrice;
+        return {
+          productId: it.product.id,
+          productName: it.product.name,
+          sku: it.product.sku,
+          qty: it.qty,
+          unitPrice: it.unitPrice,
+          gstPercent,
+          gstAmount: Number(itemGst.toFixed(2)),
+          amount: lineTotal
+        };
+      });
+
+      const calcSubtotal = processedItems.reduce((acc, i) => acc + (i.amount / (1 + i.gstPercent / 100)), 0);
+      const calcGstTotal = processedItems.reduce((acc, i) => acc + i.gstAmount, 0);
+
       const newOrder = await onCreateOfflineOrder({
         customerName: customerName.trim() || 'Walk-in Customer',
         customerPhone: customerPhone.trim(),
-        items: cartItems.map((it) => ({
-          productId: it.product.id,
-          qty: it.qty,
-          unitPrice: it.unitPrice
-        })),
+        items: processedItems,
+        subtotal: Number(calcSubtotal.toFixed(2)),
+        gstAmount: Number(calcGstTotal.toFixed(2)),
+        discountAmount,
+        grandTotal,
         paymentMode,
         cashAmount: paymentMode === 'Cash' ? grandTotal : paymentMode === 'Split' ? parseFloat(cashAmountInput) || 0 : 0,
         upiAmount: paymentMode === 'UPI' ? grandTotal : paymentMode === 'Split' ? parseFloat(upiAmountInput) || 0 : 0,
-        upiRefNo: upiRefNo.trim(),
-        discountAmount
+        upiRefNo: upiRefNo.trim()
       });
 
       onShowToast('success', 'Bill Completed', `POS Invoice ${newOrder.billNumber} created successfully!`);

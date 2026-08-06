@@ -22,21 +22,43 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
     return;
   }
 
-  const itemsRows = (order.items || [])
+  const itemsList = order.items || [];
+  const itemsRows = itemsList
     .map(
-      (item, idx) => `
+      (item, idx) => {
+        const lineAmount = typeof item.amount === 'number' && !isNaN(item.amount) ? item.amount : (item.qty || 1) * (item.unitPrice || 0);
+        const pName = item.productName || 'Firecracker Item';
+        const pSku = item.sku || 'N/A';
+        const gst = item.gstPercent || 18;
+        return `
     <tr>
       <td style="padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
-        <div style="font-weight: 600; color: #0f172a; font-size: 11px;">${item.productName}</div>
-        <div style="font-size: 9px; color: #64748b;">SKU: ${item.sku} &bull; GST ${item.gstPercent || 18}%</div>
+        <div style="font-weight: 600; color: #0f172a; font-size: 11px;">${pName}</div>
+        <div style="font-size: 9px; color: #64748b;">SKU: ${pSku} &bull; GST ${gst}%</div>
       </td>
       <td style="text-align: center; font-weight: bold; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${item.qty}</td>
       <td style="text-align: right; font-family: monospace; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(item.unitPrice)}</td>
-      <td style="text-align: right; font-family: monospace; font-weight: bold; color: #0f172a; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(item.amount)}</td>
+      <td style="text-align: right; font-family: monospace; font-weight: bold; color: #0f172a; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(lineAmount)}</td>
     </tr>
-  `
+  `;
+      }
     )
     .join('');
+
+  const calcTotalSum = itemsList.reduce(
+    (sum, i) => sum + (typeof i.amount === 'number' && !isNaN(i.amount) ? i.amount : (i.qty || 1) * (i.unitPrice || 0)),
+    0
+  );
+  const calcBaseSum = itemsList.reduce((sum, i) => {
+    const amt = typeof i.amount === 'number' && !isNaN(i.amount) ? i.amount : (i.qty || 1) * (i.unitPrice || 0);
+    const g = i.gstPercent || 18;
+    return sum + amt / (1 + g / 100);
+  }, 0);
+  const calcGstSum = calcTotalSum - calcBaseSum;
+
+  const displaySubtotal = order.subtotal || Number(calcBaseSum.toFixed(2));
+  const displayGst = order.gstAmount || Number(calcGstSum.toFixed(2));
+  const displayGrandTotal = order.grandTotal || Math.max(0, Math.round(calcTotalSum - (order.discountAmount || 0)));
 
   doc.open();
   doc.write(`
@@ -188,16 +210,16 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
           <div class="totals">
             <div class="totals-row">
               <span>Subtotal (Excl. GST):</span>
-              <span>${formatINR(order.subtotal)}</span>
+              <span>${formatINR(displaySubtotal)}</span>
             </div>
             <div class="totals-row">
               <span>GST Total:</span>
-              <span>${formatINR(order.gstAmount)}</span>
+              <span>${formatINR(displayGst)}</span>
             </div>
             ${order.discountAmount ? `<div class="totals-row" style="color: #15803d;"><span>Discount:</span><span>-${formatINR(order.discountAmount)}</span></div>` : ''}
             <div class="grand-total">
               <span>Grand Total:</span>
-              <span>${formatINR(order.grandTotal)}</span>
+              <span>${formatINR(displayGrandTotal)}</span>
             </div>
 
             <div class="payment-box">
@@ -205,8 +227,8 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
                 <span>Payment Mode:</span>
                 <span style="text-transform: uppercase; color: #b45309;">${order.paymentMode}</span>
               </div>
-              ${order.paymentMode === 'Cash' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash Tendered:</span><span>${formatINR(order.cashAmount || order.grandTotal)}</span></div>` : ''}
-              ${order.paymentMode === 'UPI' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>UPI Paid:</span><span>${formatINR(order.upiAmount || order.grandTotal)}</span></div>${order.upiRefNo ? `<div style="color: #64748b; font-family: monospace;">Ref: ${order.upiRefNo}</div>` : ''}` : ''}
+              ${order.paymentMode === 'Cash' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash Tendered:</span><span>${formatINR(order.cashAmount || displayGrandTotal)}</span></div>` : ''}
+              ${order.paymentMode === 'UPI' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>UPI Paid:</span><span>${formatINR(order.upiAmount || displayGrandTotal)}</span></div>${order.upiRefNo ? `<div style="color: #64748b; font-family: monospace;">Ref: ${order.upiRefNo}</div>` : ''}` : ''}
               ${order.paymentMode === 'Split' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash:</span><span>${formatINR(order.cashAmount || 0)}</span></div><div style="display: flex; justify-content: space-between;"><span>UPI:</span><span>${formatINR(order.upiAmount || 0)}</span></div>` : ''}
             </div>
           </div>

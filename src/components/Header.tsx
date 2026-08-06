@@ -7,7 +7,7 @@ interface HeaderProps {
   currentView: 'landing' | 'shop' | 'admin';
   onChangeView: (view: 'landing' | 'shop' | 'admin') => void;
   isAdminLoggedIn: boolean;
-  onOpenAdminLogin: () => void;
+  onOpenAdminLogin?: () => void;
   onAdminLogout: () => void;
   cartTotalItems: number;
   cartTotalAmount: number;
@@ -117,8 +117,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Admin Switcher / Login Button */}
-          {isAdminLoggedIn ? (
+          {/* Admin Controls (Only when admin is logged in or on admin view) */}
+          {isAdminLoggedIn && (
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onChangeView(currentView === 'admin' ? 'landing' : 'admin')}
@@ -140,14 +140,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
-          ) : (
-            <button
-              onClick={onOpenAdminLogin}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-300 transition-all text-xs font-bold border border-slate-700 shadow-sm"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden xs:inline">Admin Login</span>
-            </button>
           )}
         </div>
       </div>

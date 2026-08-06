@@ -25,15 +25,14 @@ interface LandingPageProps {
   categories: Category[];
   products: Product[];
   onGoToStore: () => void;
-  onOpenAdminLogin: () => void;
+  onOpenAdminLogin?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   shopDetails,
   categories,
   products,
-  onGoToStore,
-  onOpenAdminLogin
+  onGoToStore
 }) => {
   const companyName = shopDetails.name || 'Sri Laxmi Fireworks Wholesale';
   const tagline = shopDetails.tagline || 'Direct Sivakasi Factory Rates | Premium B2B Crackers';
@@ -131,14 +130,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ShoppingBag className="w-5 h-5 text-slate-950" />
               <span>Go to Online Store</span>
               <ChevronRight className="w-4 h-4 text-slate-950" />
-            </button>
-
-            <button
-              onClick={onOpenAdminLogin}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-950/90 hover:bg-slate-900 text-slate-100 border-2 border-amber-500/50 hover:border-amber-400 font-bold text-sm shadow-xl transition-all hover:text-amber-300 backdrop-blur-md cursor-pointer"
-            >
-              <ShieldCheck className="w-5 h-5 text-amber-400" />
-              <span>Admin Login</span>
             </button>
           </div>
 
@@ -350,14 +341,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ShoppingBag className="w-4 h-4 text-slate-950" />
               <span>Go to Online Store</span>
             </button>
-
-            <button
-              onClick={onOpenAdminLogin}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-slate-950 hover:bg-slate-900 text-amber-300 border border-slate-700 font-bold text-xs transition-all"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Admin Login</span>
-            </button>
           </div>
         </div>
       </section>
@@ -370,8 +353,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
           <div className="flex items-center gap-4 text-slate-400">
             <button onClick={onGoToStore} className="hover:text-amber-300 transition-colors">Online Store</button>
-            <span>&bull;</span>
-            <button onClick={onOpenAdminLogin} className="hover:text-amber-300 transition-colors">Admin Portal</button>
           </div>
         </div>
       </footer>

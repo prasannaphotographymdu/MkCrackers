@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Lock, User, KeyRound, Sparkles, AlertCircle } from 'lucide-react';
+import { X, ShieldCheck, Lock, User, KeyRound, AlertCircle } from 'lucide-react';
 
 interface AdminLoginModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   onLoginSuccess: (token: string) => void;
+  isPage?: boolean;
 }
 
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
-  isOpen,
+  isOpen = true,
   onClose,
-  onLoginSuccess
+  onLoginSuccess,
+  isPage = false
 }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('MkCrackers@2026Admin');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen && !isPage) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,20 +62,21 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setIsLoading(false);
   };
 
-  const handleQuickDemo = () => {
-    setUsername('admin');
-    setPassword('MkCrackers@2026Admin');
-  };
+  const containerClasses = isPage
+    ? 'min-h-[calc(100vh-120px)] flex items-center justify-center p-4 bg-slate-950'
+    : 'fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-white">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div className={containerClasses}>
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-white">
+        {onClose && !isPage && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-5">
           <div className="p-3 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-slate-950 shadow-lg">
@@ -81,7 +84,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-black text-white">Admin Portal Login</h2>
-            <p className="text-xs text-slate-400">Manage Inventory, Enquiries, & Invoices</p>
+            <p className="text-xs text-slate-400">admin.mkcrackers.in &bull; Management Access</p>
           </div>
         </div>
 
@@ -100,6 +103,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             <input
               type="text"
               required
+              placeholder="Enter username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
@@ -113,27 +117,17 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             <input
               type="password"
               required
+              placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-between text-xs">
-            <button
-              type="button"
-              onClick={handleQuickDemo}
-              className="text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Fill Demo Credentials
-            </button>
-            <span className="text-slate-500 font-mono">admin / MkCrackers@2026Admin</span>
-          </div>
-
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-slate-950 font-black text-sm shadow-lg shadow-amber-950/40 flex items-center justify-center gap-2 transition-all mt-4 disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-slate-950 font-black text-sm shadow-lg shadow-amber-950/40 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
