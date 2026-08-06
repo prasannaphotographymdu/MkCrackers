@@ -10,7 +10,8 @@ import {
   Sparkles,
   Building2,
   Receipt,
-  ShoppingBag
+  ShoppingBag,
+  AlertCircle
 } from 'lucide-react';
 import {
   AdminTab,
@@ -44,7 +45,10 @@ import {
   saveCategoryToFirestore,
   updateEnquiryStatusInFirestore,
   saveInvoiceToFirestore,
-  saveOfflineOrderToFirestore
+  saveOfflineOrderToFirestore,
+  subscribeStockOutNotifications,
+  generateStaticSKUCatalog,
+  clearNotifications
 } from '../../lib/firebase';
 
 interface AdminPortalProps {
@@ -76,6 +80,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [categorySales, setCategorySales] = useState<CategorySalesData[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const setTab = (tab: AdminTab) => {
     setCurrentTab(tab);
@@ -95,6 +101,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const unsubEnqs = subscribeEnquiries((liveEnqs) => setEnquiries(liveEnqs));
     const unsubInvs = subscribeInvoices((liveInvs) => setInvoices(liveInvs));
     const unsubOffline = subscribeOfflineOrders((liveOrders) => setOfflineOrders(liveOrders));
+    const unsubNotifs = subscribeStockOutNotifications((liveNotifs) => {
+      setNotifications(liveNotifs.filter((n) => n.status === 'unread'));
+    });
 
     return () => {
       unsubProds();
@@ -102,8 +111,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       unsubEnqs();
       unsubInvs();
       unsubOffline();
+      unsubNotifs();
     };
   }, []);
+
+  const handleRegenerateCatalog = async () => {
+    setIsRegenerating(true);
+    try {
+      await generateStaticSKUCatalog();
+      onShowToast(
+        'success',
+        'Static Catalog Regenerated!',
+        'Successfully compiled active items and categories into configs/catalog_sku. Public visitors will now view these instantly with 1 document read.'
+      );
+    } catch (err: any) {
+      onShowToast('error', 'Regeneration Failed', err?.message || 'Could not compile static snap.');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   const loadAllAdminData = async () => {
     setIsLoading(true);
@@ -667,6 +693,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
           <div className="flex items-center gap-1.5 py-1.5 shrink-0">
             <button
+              onClick={handleRegenerateCatalog}
+              disabled={isRegenerating}
+              title="Update SKU / Regenerate Public Catalog"
+              className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] flex items-center gap-1.5 transition-colors shadow-xs shrink-0 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+              Update SKU Catalog
+            </button>
+            <button
               onClick={loadAllAdminData}
               title="Refresh Data"
               className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 transition-colors"
@@ -679,6 +714,33 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* Main Admin View Container */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
+        {/* Stock-out & Stale Catalog Alert Banner */}
+        {notifications.length > 0 && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-md p-3.5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-fade-in">
+            <div className="flex gap-2.5">
+              <span className="p-1 rounded bg-amber-100 text-amber-800 shrink-0">
+                <AlertCircle className="w-4 h-4" />
+              </span>
+              <div>
+                <h4 className="text-xs font-bold text-amber-950">
+                  Stock-out Alert! ({notifications.length} item{notifications.length > 1 ? 's' : ''} out of stock)
+                </h4>
+                <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                  The following items are out of stock: <span className="font-semibold font-mono">{notifications.map((n) => `${n.productName} (${n.sku})`).join(', ')}</span>.
+                  Regenerate the static online catalog to ensure buyers see live stock levels and avoid ordering unavailable items.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRegenerateCatalog}
+              disabled={isRegenerating}
+              className="px-3.5 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+              {isRegenerating ? 'Updating...' : 'Update SKU Catalog Now'}
+            </button>
+          </div>
+        )}
         {currentTab === 'dashboard' && (
           <AdminDashboard
             stats={computedStats}

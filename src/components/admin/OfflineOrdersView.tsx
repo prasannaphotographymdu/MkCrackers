@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../common/Pagination';
 import {
   Search,
   Filter,
@@ -31,6 +32,12 @@ export const OfflineOrdersView: React.FC<OfflineOrdersViewProps> = ({
   const [search, setSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<OfflineOrder | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, paymentFilter]);
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
@@ -45,6 +52,11 @@ export const OfflineOrdersView: React.FC<OfflineOrdersViewProps> = ({
       return matchesPayment && matchesSearch;
     });
   }, [orders, paymentFilter, search]);
+
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * 10;
+    return filteredOrders.slice(start, start + 10);
+  }, [filteredOrders, currentPage]);
 
   // Summaries
   const stats = useMemo(() => {
@@ -206,7 +218,7 @@ export const OfflineOrdersView: React.FC<OfflineOrdersViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => (
+                paginatedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                     <td className="py-3 px-4 font-black text-slate-900">{order.billNumber}</td>
                     <td className="py-3 px-4 text-slate-600">
@@ -259,6 +271,12 @@ export const OfflineOrdersView: React.FC<OfflineOrdersViewProps> = ({
             </tbody>
           </table>
         </div>
+        <Pagination
+          totalItems={filteredOrders.length}
+          itemsPerPage={10}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* POS Receipt Modal when clicked */}

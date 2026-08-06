@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../common/Pagination';
 import {
   FileText,
   Search,
@@ -72,6 +73,18 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
       return true;
     });
   }, [enquiries, selectedStatus, customerSearch, phoneSearch, dateSearch]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStatus, customerSearch, phoneSearch, dateSearch]);
+
+  const paginatedEnquiries = useMemo(() => {
+    const start = (currentPage - 1) * 10;
+    return filteredEnquiries.slice(start, start + 10);
+  }, [filteredEnquiries, currentPage]);
 
   // Handle Status Change
   const handleStatusChange = async (enquiryId: string, newStatus: EnquiryStatus, notes?: string) => {
@@ -220,7 +233,7 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredEnquiries.map((e) => (
+              {paginatedEnquiries.map((e) => (
                 <tr key={e.id} className="hover:bg-slate-50 transition-colors">
                   <td className="py-2 px-3 font-mono font-bold text-red-700">{e.id}</td>
                   <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{formatDate(e.createdAt)}</td>
@@ -310,6 +323,12 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
             </div>
           )}
         </div>
+        <Pagination
+          totalItems={filteredEnquiries.length}
+          itemsPerPage={10}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Enquiry Items Detail Drawer / Modal */}

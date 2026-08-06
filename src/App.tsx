@@ -16,7 +16,8 @@ import {
   subscribeCategories,
   subscribeShopDetails,
   saveEnquiryToFirestore,
-  saveShopDetailsToFirestore
+  saveShopDetailsToFirestore,
+  fetchStaticSKUCatalog
 } from './lib/firebase';
 
 export default function App() {
@@ -96,22 +97,9 @@ export default function App() {
     seedFirestoreIfEmpty();
 
     // 3. Fallback REST API initial fetch
-    fetchShopCatalog();
     fetchShopInfo();
 
-    // 4. Real-time Firestore Subscriptions
-    const unsubProds = subscribeProducts((liveProducts) => {
-      if (liveProducts && liveProducts.length > 0) {
-        setProducts(liveProducts.filter((p) => p.status === 'active'));
-      }
-    });
-
-    const unsubCats = subscribeCategories((liveCats) => {
-      if (liveCats && liveCats.length > 0) {
-        setCategories(liveCats);
-      }
-    });
-
+    // 4. Real-time Shop Details Subscription
     const unsubShop = subscribeShopDetails((liveShop) => {
       if (liveShop) {
         setShopDetails(liveShop);
@@ -121,11 +109,46 @@ export default function App() {
     return () => {
       window.removeEventListener('popstate', handleLocationChange);
       window.removeEventListener('hashchange', handleLocationChange);
-      unsubProds();
-      unsubCats();
       unsubShop();
     };
   }, []);
+
+  // Optimized Dynamic Live Subscriptions vs Static Cached Catalog
+  useEffect(() => {
+    let unsubProds = () => {};
+    let unsubCats = () => {};
+
+    if (view === 'admin') {
+      console.log('Admin mode: Subscribing to live products & categories');
+      unsubProds = subscribeProducts((liveProducts) => {
+        if (liveProducts && liveProducts.length > 0) {
+          setProducts(liveProducts);
+        }
+      });
+
+      unsubCats = subscribeCategories((liveCats) => {
+        if (liveCats && liveCats.length > 0) {
+          setCategories(liveCats);
+        }
+      });
+    } else {
+      console.log('Public mode: Reading optimized static SKU catalog from configs/catalog_sku');
+      fetchStaticSKUCatalog().then((cached) => {
+        if (cached && cached.products && cached.products.length > 0) {
+          setProducts(cached.products);
+          setCategories(cached.categories);
+        } else {
+          // Robust API fallback if not compiled yet
+          fetchShopCatalog();
+        }
+      });
+    }
+
+    return () => {
+      unsubProds();
+      unsubCats();
+    };
+  }, [view]);
 
   const fetchShopCatalog = async () => {
     try {

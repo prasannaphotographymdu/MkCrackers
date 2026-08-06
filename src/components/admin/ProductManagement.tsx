@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../common/Pagination';
 import {
   Plus,
   Search,
@@ -46,6 +47,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   const [stockFilter, setStockFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [maxPriceFilter, setMaxPriceFilter] = useState<number | ''>('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, skuFilter, selectedCategory, stockFilter, statusFilter, maxPriceFilter]);
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -187,6 +194,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
       return true;
     });
   }, [products, skuFilter, searchTerm, selectedCategory, statusFilter, stockFilter, maxPriceFilter]);
+
+  // Paginated Products (10 per page)
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * 10;
+    return filteredProducts.slice(start, start + 10);
+  }, [filteredProducts, currentPage]);
 
   // Handle CSV Sample Download
   const handleDownloadSampleCSV = () => {
@@ -394,7 +407,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredProducts.map((p) => {
+              {paginatedProducts.map((p) => {
                 const isOut = p.currentStock === 0;
                 const isLow = p.currentStock > 0 && p.currentStock <= p.lowStockLimit;
 
@@ -480,6 +493,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
             </div>
           )}
         </div>
+        <Pagination
+          totalItems={filteredProducts.length}
+          itemsPerPage={10}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Product Add/Edit Modal */}

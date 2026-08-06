@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../common/Pagination';
 import {
   Boxes,
   AlertTriangle,
@@ -29,6 +30,12 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [stockStatusFilter, setStockStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, stockStatusFilter]);
 
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
   const [newStockVal, setNewStockVal] = useState<number>(0);
@@ -50,6 +57,11 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
 
     return true;
   });
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * 10;
+    return filteredProducts.slice(start, start + 10);
+  }, [filteredProducts, currentPage]);
 
   const lowStockCount = products.filter(
     (p) => p.currentStock > 0 && p.currentStock <= p.lowStockLimit
@@ -183,7 +195,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredProducts.map((p) => {
+              {paginatedProducts.map((p) => {
                 const isOut = p.currentStock === 0;
                 const isLow = p.currentStock > 0 && p.currentStock <= p.lowStockLimit;
 
@@ -236,6 +248,12 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
             </div>
           )}
         </div>
+        <Pagination
+          totalItems={filteredProducts.length}
+          itemsPerPage={10}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Adjust Stock Modal */}
