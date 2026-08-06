@@ -13,16 +13,17 @@ import {
   MapPin,
   Calendar,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Truck
 } from 'lucide-react';
-import { Enquiry, Invoice } from '../../types';
+import { Enquiry, Invoice, EnquiryStatus } from '../../types';
 import { formatINR, formatDate } from '../../lib/utils';
 import { InvoiceViewModal } from './InvoiceViewModal';
 
 interface EnquiryManagementProps {
   enquiries: Enquiry[];
   invoices: Invoice[];
-  onUpdateStatus: (id: string, status: 'Pending' | 'Success' | 'Closed', notes?: string) => Promise<void>;
+  onUpdateStatus: (id: string, status: EnquiryStatus, notes?: string) => Promise<void>;
   onGenerateInvoice: (enquiryId: string) => Promise<Invoice>;
   onShowToast: (type: 'success' | 'error' | 'info', title: string, desc?: string) => void;
 }
@@ -45,6 +46,10 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+
+  // Dispatch Note Modal State
+  const [shippingNoteEnquiry, setShippingNoteEnquiry] = useState<Enquiry | null>(null);
+  const [dispatchNoteInput, setDispatchNoteInput] = useState('');
 
   // Filtered List
   const filteredEnquiries = useMemo(() => {
@@ -69,11 +74,17 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
   }, [enquiries, selectedStatus, customerSearch, phoneSearch, dateSearch]);
 
   // Handle Status Change
-  const handleStatusChange = async (enquiryId: string, newStatus: 'Pending' | 'Success' | 'Closed') => {
+  const handleStatusChange = async (enquiryId: string, newStatus: EnquiryStatus, notes?: string) => {
     try {
-      await onUpdateStatus(enquiryId, newStatus);
+      await onUpdateStatus(enquiryId, newStatus, notes);
       onShowToast(
-        newStatus === 'Success' ? 'success' : newStatus === 'Closed' ? 'error' : 'info',
+        newStatus === 'Success'
+          ? 'success'
+          : newStatus === 'Shipped'
+          ? 'info'
+          : newStatus === 'Closed'
+          ? 'error'
+          : 'info',
         'Enquiry Status Updated',
         `Enquiry ${enquiryId} set to ${newStatus}`
       );
@@ -133,8 +144,9 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
           {[
             { key: 'all', label: 'All', count: enquiries.length },
             { key: 'Pending', label: '1. Pending', count: enquiries.filter((e) => e.status === 'Pending').length },
-            { key: 'Success', label: '2. Success', count: enquiries.filter((e) => e.status === 'Success').length },
-            { key: 'Closed', label: '3. Closed', count: enquiries.filter((e) => e.status === 'Closed').length }
+            { key: 'Shipped', label: '2. Shipped', count: enquiries.filter((e) => e.status === 'Shipped').length },
+            { key: 'Success', label: '3. Success', count: enquiries.filter((e) => e.status === 'Success').length },
+            { key: 'Closed', label: '4. Closed', count: enquiries.filter((e) => e.status === 'Closed').length }
           ].map((tab) => (
             <button
               key={tab.key}
@@ -228,20 +240,29 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                     <div className="flex items-center justify-center gap-1.5">
                       <select
                         value={e.status}
-                        onChange={(ev) =>
-                          handleStatusChange(e.id, ev.target.value as 'Pending' | 'Success' | 'Closed')
-                        }
-                        className={`px-2 py-0.5 rounded text-[11px] font-bold border focus:outline-none ${
+                        onChange={(ev) => {
+                          const newSt = ev.target.value as EnquiryStatus;
+                          if (newSt === 'Shipped') {
+                            setShippingNoteEnquiry(e);
+                            setDispatchNoteInput(e.notes || '');
+                          } else {
+                            handleStatusChange(e.id, newSt);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold border focus:outline-none cursor-pointer ${
                           e.status === 'Pending'
                             ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : e.status === 'Shipped'
+                            ? 'bg-blue-50 text-blue-800 border-blue-300 font-black'
                             : e.status === 'Success'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                             : 'bg-red-50 text-red-800 border-red-300'
                         }`}
                       >
                         <option value="Pending">1. Pending</option>
-                        <option value="Success">2. Success (Confirmed)</option>
-                        <option value="Closed">3. Closed (Rejected)</option>
+                        <option value="Shipped">2. Shipped / Dispatched</option>
+                        <option value="Success">3. Success (Confirmed)</option>
+                        <option value="Closed">4. Closed (Rejected)</option>
                       </select>
                     </div>
                   </td>
@@ -397,12 +418,46 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                     </button>
                     <button
                       onClick={() => {
+                        const enq = activeEnquiry;
+                        setShippingNoteEnquiry(enq);
+                        setDispatchNoteInput(enq.notes || '');
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Truck className="w-4 h-4" /> Mark Shipped
+                    </button>
+                    <button
+                      onClick={() => {
                         handleStatusChange(activeEnquiry.id, 'Success');
                         setActiveEnquiry(null);
                       }}
                       className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer"
                     >
                       Confirm Order
+                    </button>
+                  </>
+                )}
+
+                {activeEnquiry.status === 'Shipped' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const enq = activeEnquiry;
+                        setShippingNoteEnquiry(enq);
+                        setDispatchNoteInput(enq.notes || '');
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-bold text-xs transition-colors min-h-[44px] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Truck className="w-4 h-4" /> Edit Courier LR
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleStatusChange(activeEnquiry.id, 'Success');
+                        setActiveEnquiry(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer"
+                    >
+                      Mark Delivered (Success)
                     </button>
                   </>
                 )}
@@ -433,6 +488,66 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispatch Tracking Info Modal */}
+      {shippingNoteEnquiry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Truck className="w-5 h-5 text-blue-400" />
+                <h3 className="font-extrabold text-sm text-white">
+                  Mark Order #{shippingNoteEnquiry.id} as Shipped
+                </h3>
+              </div>
+              <button
+                onClick={() => setShippingNoteEnquiry(null)}
+                className="text-slate-400 hover:text-white text-xs p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Enter Transport / Courier LR & Tracking Info
+              </label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Dispatched via VRL Transport. LR #9823411, Vehicle TN-67-A-1020. Contact driver: 9842100000"
+                value={dispatchNoteInput}
+                onChange={(e) => setDispatchNoteInput(e.target.value)}
+                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Customers will see this tracking information live on the Order Tracker page.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShippingNoteEnquiry(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const enqId = shippingNoteEnquiry.id;
+                  setShippingNoteEnquiry(null);
+                  await handleStatusChange(enqId, 'Shipped', dispatchNoteInput);
+                  if (activeEnquiry && activeEnquiry.id === enqId) {
+                    setActiveEnquiry((prev) => prev ? { ...prev, status: 'Shipped', notes: dispatchNoteInput } : null);
+                  }
+                }}
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-950/50"
+              >
+                Save & Mark Shipped
+              </button>
             </div>
           </div>
         </div>

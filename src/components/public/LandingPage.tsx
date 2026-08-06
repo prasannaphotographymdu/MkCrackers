@@ -25,6 +25,7 @@ interface LandingPageProps {
   categories: Category[];
   products: Product[];
   onGoToStore: () => void;
+  onOpenTracker?: (query?: string) => void;
   onOpenAdminLogin?: () => void;
 }
 
@@ -32,7 +33,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   shopDetails,
   categories,
   products,
-  onGoToStore
+  onGoToStore,
+  onOpenTracker
 }) => {
   const companyName = shopDetails.name || 'Sri Laxmi Fireworks Wholesale';
   const tagline = shopDetails.tagline || 'Direct Sivakasi Factory Rates | Premium B2B Crackers';
@@ -121,8 +123,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          {/* Hero CTAs - Redirection Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-10">
+          {/* Hero CTAs - Redirection Buttons & Tracking */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-xl mx-auto mb-8">
             <button
               onClick={onGoToStore}
               className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-200 text-slate-950 font-black text-sm uppercase tracking-wide shadow-2xl shadow-amber-500/30 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer"
@@ -131,6 +133,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span>Go to Online Store</span>
               <ChevronRight className="w-4 h-4 text-slate-950" />
             </button>
+
+            {onOpenTracker && (
+              <button
+                onClick={() => onOpenTracker()}
+                className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-amber-300 font-bold text-sm border border-amber-400/50 hover:border-amber-400 shadow-xl backdrop-blur-md hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <Truck className="w-5 h-5 text-amber-400" />
+                <span>Track Order Status</span>
+              </button>
+            )}
           </div>
 
           {/* Key Quick Badges with High Contrast Dark Card Shields */}

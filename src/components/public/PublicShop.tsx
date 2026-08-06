@@ -18,7 +18,7 @@ import {
 import { Category, Product, CartItem, ShopDetails } from '../../types';
 import { ProductCard } from './ProductCard';
 import { formatINR } from '../../lib/utils';
-import { Phone, MessageCircle, Mail, MapPin, Building2, ShieldCheck } from 'lucide-react';
+import { Phone, MessageCircle, Mail, MapPin, Building2, ShieldCheck, Truck } from 'lucide-react';
 
 interface PublicShopProps {
   categories: Category[];
@@ -27,6 +27,7 @@ interface PublicShopProps {
   onUpdateCartQty: (productId: string, qty: number) => void;
   onProceedToCheckout: () => void;
   onClearCart: () => void;
+  onOpenTracker?: (query?: string) => void;
   shopDetails?: ShopDetails;
 }
 
@@ -37,6 +38,7 @@ export const PublicShop: React.FC<PublicShopProps> = ({
   onUpdateCartQty,
   onProceedToCheckout,
   onClearCart,
+  onOpenTracker,
   shopDetails
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -210,6 +212,17 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                   <span className="hidden sm:inline text-[11px]">Grid</span>
                 </button>
               </div>
+
+              {onOpenTracker && (
+                <button
+                  onClick={() => onOpenTracker()}
+                  className="px-2.5 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all shrink-0 cursor-pointer"
+                  title="Track status of your existing order"
+                >
+                  <Truck className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden xs:inline">Track Order</span>
+                </button>
+              )}
             </div>
 
             {/* Category Filter Chips */}

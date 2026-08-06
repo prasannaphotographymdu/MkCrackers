@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, ShieldCheck, ShoppingBag, PhoneCall, Sparkles, LogOut, LayoutDashboard, Home } from 'lucide-react';
+import { Flame, ShieldCheck, ShoppingBag, PhoneCall, Sparkles, LogOut, LayoutDashboard, Home, Truck } from 'lucide-react';
 import { ShopDetails } from '../types';
 import { formatINR } from '../lib/utils';
 
@@ -12,6 +12,7 @@ interface HeaderProps {
   cartTotalItems: number;
   cartTotalAmount: number;
   onOpenCart: () => void;
+  onOpenTracker?: () => void;
   shopDetails?: ShopDetails;
 }
 
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   cartTotalItems,
   cartTotalAmount,
   onOpenCart,
+  onOpenTracker,
   shopDetails
 }) => {
   const companyName = shopDetails?.name || 'Sri Laxmi Fireworks';
@@ -96,6 +98,17 @@ export const Header: React.FC<HeaderProps> = ({
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>Online Store</span>
           </button>
+
+          {onOpenTracker && (
+            <button
+              onClick={onOpenTracker}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-800 hover:bg-red-900 border border-amber-300/60 text-amber-300 font-bold text-xs transition-all shadow-sm"
+              title="Track your firecrackers order status"
+            >
+              <Truck className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">Track Order</span>
+            </button>
+          )}
 
           {/* Cart Pill for Customer View */}
           {currentView === 'shop' && (

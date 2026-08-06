@@ -1,17 +1,19 @@
 import React from 'react';
-import { CheckCircle2, MessageCircle, FileText, ArrowRight, Sparkles } from 'lucide-react';
+import { CheckCircle2, MessageCircle, FileText, ArrowRight, Sparkles, Truck } from 'lucide-react';
 import { Enquiry, ShopDetails } from '../../types';
 import { formatINR } from '../../lib/utils';
 
 interface EnquirySuccessModalProps {
   enquiry: Enquiry | null;
   onClose: () => void;
+  onOpenTracker?: (query?: string) => void;
   shopDetails?: ShopDetails;
 }
 
 export const EnquirySuccessModal: React.FC<EnquirySuccessModalProps> = ({
   enquiry,
   onClose,
+  onOpenTracker,
   shopDetails
 }) => {
   if (!enquiry) return null;
@@ -76,19 +78,32 @@ export const EnquirySuccessModal: React.FC<EnquirySuccessModalProps> = ({
         </p>
 
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
           <a
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all cursor-pointer"
           >
             <MessageCircle className="w-4 h-4" /> Send Copy to WhatsApp
           </a>
 
+          {onOpenTracker && (
+            <button
+              onClick={() => {
+                const orderId = enquiry.id;
+                onClose();
+                onOpenTracker(orderId);
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-950/40 transition-all cursor-pointer"
+            >
+              <Truck className="w-4 h-4" /> Track Order Live
+            </button>
+          )}
+
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all cursor-pointer"
           >
             <span>Continue Shopping</span>
             <ArrowRight className="w-4 h-4" />

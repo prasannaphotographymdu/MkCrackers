@@ -458,13 +458,13 @@ async function startServer() {
     res.status(201).json(newEnquiry);
   });
 
-  // Update Enquiry Status (Pending -> Success or Closed)
+  // Update Enquiry Status (Pending -> Shipped, Success, Closed)
   app.put('/api/enquiries/:id/status', (req, res) => {
     const { id } = req.params;
     const { status, notes } = req.body;
 
-    if (!['Pending', 'Success', 'Closed'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status. Must be Pending, Success, or Closed' });
+    if (!['Pending', 'Shipped', 'Success', 'Closed'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Must be Pending, Shipped, Success, or Closed' });
     }
 
     const index = enquiries.findIndex((e) => e.id === id);
@@ -473,9 +473,46 @@ async function startServer() {
     }
 
     enquiries[index].status = status;
-    if (notes) enquiries[index].notes = notes;
+    if (notes !== undefined) enquiries[index].notes = notes;
 
     res.json(enquiries[index]);
+  });
+
+  // Track Order / Enquiry API
+  app.get('/api/orders/track/:query', (req, res) => {
+    const rawQuery = (req.params.query || '').trim().toLowerCase();
+    if (!rawQuery) {
+      return res.status(400).json({ message: 'Please enter a valid Order ID or Mobile Number' });
+    }
+
+    // Match exact ID, numeric part, invoice ID, or customer mobile
+    const matches = enquiries.filter((e) => {
+      const eId = e.id.toLowerCase();
+      const mob = (e.customerDetails?.mobile || '').replace(/\D/g, '');
+      const queryClean = rawQuery.replace(/\D/g, '');
+      const invId = (e.invoiceId || '').toLowerCase();
+
+      // Check ID match e.g. "ENQ-1001" or "1001" or "ENQ1001"
+      if (eId === rawQuery || eId.replace(/[^a-z0-0]/g, '') === rawQuery) return true;
+      if (eId.includes(rawQuery)) return true;
+      if (invId && (invId === rawQuery || invId.includes(rawQuery))) return true;
+
+      // Check Mobile match
+      if (queryClean.length >= 4 && mob.includes(queryClean)) return true;
+
+      return false;
+    });
+
+    if (matches.length === 0) {
+      return res.status(404).json({ message: `No order found matching "${req.params.query}". Please check your Order ID or registered Mobile Number.` });
+    }
+
+    // Return matched enquiries sorted by latest
+    res.json({
+      success: true,
+      count: matches.length,
+      orders: matches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    });
   });
 
   // --- INVOICES ---

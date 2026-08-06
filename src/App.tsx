@@ -6,6 +6,7 @@ import { LandingPage } from './components/public/LandingPage';
 import { PublicShop } from './components/public/PublicShop';
 import { CheckoutModal } from './components/public/CheckoutModal';
 import { EnquirySuccessModal } from './components/public/EnquirySuccessModal';
+import { OrderTrackerModal } from './components/public/OrderTrackerModal';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
@@ -52,6 +53,13 @@ export default function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSubmittingEnquiry, setIsSubmittingEnquiry] = useState(false);
   const [submittedEnquiry, setSubmittedEnquiry] = useState<Enquiry | null>(null);
+  const [isTrackerOpen, setIsTrackerOpen] = useState(false);
+  const [trackerQuery, setTrackerQuery] = useState('');
+
+  const handleOpenTracker = (query?: string) => {
+    setTrackerQuery(query || '');
+    setIsTrackerOpen(true);
+  };
 
   // Toast System
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -329,6 +337,7 @@ export default function App() {
             showToast('info', 'Cart Empty', 'Please select firecrackers from the catalog first.');
           }
         }}
+        onOpenTracker={handleOpenTracker}
       />
 
       {/* Main Content Router */}
@@ -341,6 +350,7 @@ export default function App() {
             setView('shop');
             fetchShopCatalog();
           }}
+          onOpenTracker={handleOpenTracker}
         />
       ) : view === 'shop' ? (
         <PublicShop
@@ -350,6 +360,7 @@ export default function App() {
           onUpdateCartQty={handleUpdateCartQty}
           onProceedToCheckout={() => setIsCheckoutOpen(true)}
           onClearCart={handleClearCart}
+          onOpenTracker={handleOpenTracker}
           shopDetails={shopDetails}
         />
       ) : isAdminLoggedIn ? (
@@ -389,6 +400,14 @@ export default function App() {
       <EnquirySuccessModal
         enquiry={submittedEnquiry}
         onClose={() => setSubmittedEnquiry(null)}
+        onOpenTracker={handleOpenTracker}
+        shopDetails={shopDetails}
+      />
+
+      <OrderTrackerModal
+        isOpen={isTrackerOpen}
+        onClose={() => setIsTrackerOpen(false)}
+        initialQuery={trackerQuery}
         shopDetails={shopDetails}
       />
     </div>

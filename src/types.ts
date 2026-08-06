@@ -37,7 +37,7 @@ export interface CustomerDetails {
   address: string;
 }
 
-export type EnquiryStatus = 'Pending' | 'Success' | 'Closed';
+export type EnquiryStatus = 'Pending' | 'Shipped' | 'Success' | 'Closed';
 
 export interface EnquiryItem {
   id: string;
