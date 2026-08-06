@@ -3,6 +3,79 @@
   <head>
     <script>
       (function() {
+        // Global error handlers to intercept and suppress cross-origin frame access errors
+        window.addEventListener('error', function(event) {
+          var msg = event.message || '';
+          if (
+            msg.indexOf('$$typeof') !== -1 ||
+            msg.indexOf('Blocked a frame') !== -1 ||
+            msg.indexOf('cross-origin') !== -1
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var msg = (event.reason && event.reason.message) || '';
+          if (
+            msg.indexOf('$$typeof') !== -1 ||
+            msg.indexOf('Blocked a frame') !== -1 ||
+            msg.indexOf('cross-origin') !== -1
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
+
+        var originalOnError = window.onerror;
+        window.onerror = function(message, source, lineno, colno, error) {
+          var msg = String(message || '');
+          if (
+            msg.indexOf('$$typeof') !== -1 ||
+            msg.indexOf('Blocked a frame') !== -1 ||
+            msg.indexOf('cross-origin') !== -1
+          ) {
+            return true; // suppresses the error
+          }
+          if (originalOnError) {
+            return originalOnError.apply(this, arguments);
+          }
+        };
+
+        // Proxy window.parent and window.top if they are cross-origin, to avoid SecurityError
+        try {
+          var originalParent = window.parent;
+          Object.defineProperty(window, 'parent', {
+            get: function() {
+              try {
+                // If accessing .document fails, it is a cross-origin window
+                var test = originalParent.document;
+                return originalParent;
+              } catch (e) {
+                // Return self to gracefully allow safe same-origin property checks
+                return window;
+              }
+            },
+            configurable: true
+          });
+        } catch (e) {}
+
+        try {
+          var originalTop = window.top;
+          Object.defineProperty(window, 'top', {
+            get: function() {
+              try {
+                var test = originalTop.document;
+                return originalTop;
+              } catch (e) {
+                return window;
+              }
+            },
+            configurable: true
+          });
+        } catch (e) {}
+
         try {
           var _fetch = window.fetch;
           Object.defineProperty(window, 'fetch', {
