@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, Lock, User, KeyRound, AlertCircle } from 'lucide-react';
+import adminCreds from '../../../admin-credentials.json';
 
 interface AdminLoginModalProps {
   isOpen?: boolean;
@@ -26,8 +27,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setErrorMsg('');
     setIsLoading(true);
 
-    const validPasswords = ['MkCrackers@2026Admin', 'admin123', 'admin'];
-    const isLocalValid = username.trim().toLowerCase() === 'admin' && validPasswords.includes(password.trim());
+    const isLocalValid =
+      username.trim() === adminCreds.username &&
+      password.trim() === adminCreds.password;
 
     try {
       const res = await fetch('/api/admin/login', {

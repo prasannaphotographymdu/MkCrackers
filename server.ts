@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import adminCreds from './admin-credentials.json';
 import {
   INITIAL_CATEGORIES,
   INITIAL_PRODUCTS,
@@ -70,12 +71,11 @@ async function startServer() {
   // --- ADMIN AUTH ---
   app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
-    const validPasswords = ['MkCrackers@2026Admin', 'admin123', 'admin'];
-    if (username === 'admin' && validPasswords.includes(password)) {
+    if (username === adminCreds.username && password === adminCreds.password) {
       res.json({
         success: true,
         token: 'demo-admin-jwt-token-2026',
-        admin: { username: 'admin', name: 'Store Owner', role: 'Super Admin' }
+        admin: { username: adminCreds.username, name: 'Store Owner', role: 'Super Admin' }
       });
     } else {
       res.status(401).json({ success: false, message: 'Invalid Admin Credentials' });
