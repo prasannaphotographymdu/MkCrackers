@@ -1,5 +1,241 @@
-import { Invoice } from '../types';
+import { Invoice, OfflineOrder, ShopDetails } from '../types';
 import { formatINR, formatDate } from './utils';
+
+/**
+ * Triggers a clean print dialog for a POS Receipt / Tax Invoice via an isolated hidden iframe.
+ * Prevents blank pages, background UI clutter, and web page printing errors.
+ */
+export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails) => {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    window.print();
+    return;
+  }
+
+  const itemsRows = (order.items || [])
+    .map(
+      (item, idx) => `
+    <tr>
+      <td style="padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
+        <div style="font-weight: 600; color: #0f172a; font-size: 11px;">${item.productName}</div>
+        <div style="font-size: 9px; color: #64748b;">SKU: ${item.sku} &bull; GST ${item.gstPercent || 18}%</div>
+      </td>
+      <td style="text-align: center; font-weight: bold; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${item.qty}</td>
+      <td style="text-align: right; font-family: monospace; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(item.unitPrice)}</td>
+      <td style="text-align: right; font-family: monospace; font-weight: bold; color: #0f172a; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(item.amount)}</td>
+    </tr>
+  `
+    )
+    .join('');
+
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>POS_Bill_${order.billNumber}</title>
+        <meta charset="utf-8" />
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            margin: 0;
+            padding: 0;
+            font-size: 11px;
+            line-height: 1.4;
+          }
+          .receipt-box {
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+          }
+          .title {
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin: 0;
+            color: #0f172a;
+          }
+          .tagline {
+            font-size: 10px;
+            color: #b91c1c;
+            font-weight: 600;
+            margin: 2px 0;
+          }
+          .info {
+            font-size: 10px;
+            color: #64748b;
+          }
+          .meta-table {
+            width: 100%;
+            font-size: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 8px;
+          }
+          .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-between: 10px;
+          }
+          .items-table th {
+            text-align: left;
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #64748b;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 4px;
+          }
+          .totals {
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 8px;
+            margin-top: 10px;
+            font-size: 11px;
+          }
+          .totals-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            color: #475569;
+          }
+          .grand-total {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 900;
+            font-size: 14px;
+            color: #0f172a;
+            border-top: 1px solid #0f172a;
+            padding-top: 6px;
+            margin-top: 4px;
+          }
+          .payment-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 10px;
+          }
+          .footer {
+            text-align: center;
+            font-size: 9px;
+            color: #64748b;
+            margin-top: 16px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 8px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt-box">
+          <div class="header">
+            <h2 class="title">${shopDetails.name}</h2>
+            <div class="tagline">${shopDetails.tagline}</div>
+            <div class="info">${shopDetails.address}, ${shopDetails.cityState}</div>
+            <div class="info">Phone: ${shopDetails.phone} | GSTIN: ${shopDetails.gstin}</div>
+          </div>
+
+          <table class="meta-table">
+            <tr>
+              <td><strong>Bill No:</strong> ${order.billNumber}</td>
+              <td style="text-align: right;"><strong>Date:</strong> ${new Date(order.createdAt).toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td><strong>Customer:</strong> ${order.customerName || 'Walk-in Customer'}</td>
+              <td style="text-align: right;"><strong>Payment:</strong> ${order.paymentMode}</td>
+            </tr>
+          </table>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style="text-align: center;">Qty</th>
+                <th style="text-align: right;">Price</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsRows}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="totals-row">
+              <span>Subtotal (Excl. GST):</span>
+              <span>${formatINR(order.subtotal)}</span>
+            </div>
+            <div class="totals-row">
+              <span>GST Total:</span>
+              <span>${formatINR(order.gstAmount)}</span>
+            </div>
+            ${order.discountAmount ? `<div class="totals-row" style="color: #15803d;"><span>Discount:</span><span>-${formatINR(order.discountAmount)}</span></div>` : ''}
+            <div class="grand-total">
+              <span>Grand Total:</span>
+              <span>${formatINR(order.grandTotal)}</span>
+            </div>
+
+            <div class="payment-box">
+              <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>Payment Mode:</span>
+                <span style="text-transform: uppercase; color: #b45309;">${order.paymentMode}</span>
+              </div>
+              ${order.paymentMode === 'Cash' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash Tendered:</span><span>${formatINR(order.cashAmount || order.grandTotal)}</span></div>` : ''}
+              ${order.paymentMode === 'UPI' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>UPI Paid:</span><span>${formatINR(order.upiAmount || order.grandTotal)}</span></div>${order.upiRefNo ? `<div style="color: #64748b; font-family: monospace;">Ref: ${order.upiRefNo}</div>` : ''}` : ''}
+              ${order.paymentMode === 'Split' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash:</span><span>${formatINR(order.cashAmount || 0)}</span></div><div style="display: flex; justify-content: space-between;"><span>UPI:</span><span>${formatINR(order.upiAmount || 0)}</span></div>` : ''}
+            </div>
+          </div>
+
+          <div class="footer">
+            <p style="font-weight: bold; margin: 0 0 2px 0;">Thank you for purchasing 100% Green Certified Crackers!</p>
+            <p style="margin: 0;">Wish you a Safe, Joyous & Sparkling Celebration.</p>
+            <p style="margin: 4px 0 0 0; color: #94a3b8; font-family: monospace;">Computer Generated POS Tax Invoice</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (e) {
+      window.print();
+    }
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 1500);
+  }, 300);
+};
 
 /**
  * Triggers a clean print dialog for a GST Tax Invoice via an isolated hidden iframe.

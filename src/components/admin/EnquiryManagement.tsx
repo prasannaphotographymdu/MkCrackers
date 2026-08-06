@@ -293,117 +293,146 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
 
       {/* Enquiry Items Detail Drawer / Modal */}
       {activeEnquiry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 animate-fade-in overflow-y-auto">
-          <div className="bg-white border border-slate-300 rounded-md max-w-xl w-full my-6 p-4 shadow-2xl relative text-slate-900">
-            <button
-              onClick={() => setActiveEnquiry(null)}
-              className="absolute top-3 right-3 p-1 rounded bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
-            >
-              <XCircle className="w-4 h-4" />
-            </button>
-
-            <h3 className="text-base font-bold text-slate-900 mb-0.5">
-              Enquiry Details: {activeEnquiry.id}
-            </h3>
-            <p className="text-[11px] text-slate-500 mb-3">
-              Submitted on {formatDate(activeEnquiry.createdAt)}
-            </p>
-
-            {/* Customer Info Box */}
-            <div className="bg-slate-50 border border-slate-200 rounded p-3 mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white border border-slate-300 rounded-2xl max-w-xl w-full my-auto shadow-2xl relative text-slate-900 flex flex-col max-h-[92vh] overflow-hidden">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-30 bg-slate-900 text-white p-3.5 sm:p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
               <div>
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">Customer Name:</span>
-                <span className="font-bold text-slate-900">{activeEnquiry.customerDetails.name}</span>
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <span>Enquiry: {activeEnquiry.id}</span>
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  Submitted on {formatDate(activeEnquiry.createdAt)}
+                </p>
               </div>
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">Mobile Number:</span>
-                <span className="font-mono font-bold text-red-700">{activeEnquiry.customerDetails.mobile}</span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">Dispatch Address:</span>
-                <span className="text-slate-800">{activeEnquiry.customerDetails.address}</span>
-              </div>
+              <button
+                onClick={() => setActiveEnquiry(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Itemized Table */}
-            <div className="border border-slate-200 rounded overflow-x-auto mb-3">
-              <table className="w-full min-w-[480px] text-left text-xs text-slate-800">
-                <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-tight text-[10px]">
-                  <tr>
-                    <th className="py-2 px-2.5">SKU</th>
-                    <th className="py-2 px-2.5">Product Name</th>
-                    <th className="py-2 px-2.5 text-center">Qty</th>
-                    <th className="py-2 px-2.5 text-right">Selling Rate</th>
-                    <th className="py-2 px-2.5 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {activeEnquiry.items.map((it) => (
-                    <tr key={it.id}>
-                      <td className="py-1.5 px-2.5 font-mono font-bold text-red-700 whitespace-nowrap">{it.sku}</td>
-                      <td className="py-1.5 px-2.5 font-semibold text-slate-900">{it.productName}</td>
-                      <td className="py-1.5 px-2.5 text-center font-bold whitespace-nowrap">{it.qty}</td>
-                      <td className="py-1.5 px-2.5 text-right font-mono whitespace-nowrap">{formatINR(it.unitPrice)}</td>
-                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-red-700 whitespace-nowrap">
-                        {formatINR(it.amount)}
-                      </td>
+            {/* Scrollable Content */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-3">
+              {/* Customer Info Box */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Customer Name:</span>
+                  <span className="font-bold text-slate-900">{activeEnquiry.customerDetails.name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Mobile Number:</span>
+                  <span className="font-mono font-bold text-red-700">{activeEnquiry.customerDetails.mobile}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Dispatch Address:</span>
+                  <span className="text-slate-800">{activeEnquiry.customerDetails.address}</span>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                <table className="w-full min-w-[480px] text-left text-xs text-slate-800">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-tight text-[10px]">
+                    <tr>
+                      <th className="py-2 px-2.5">SKU</th>
+                      <th className="py-2 px-2.5">Product Name</th>
+                      <th className="py-2 px-2.5 text-center">Qty</th>
+                      <th className="py-2 px-2.5 text-right">Selling Rate</th>
+                      <th className="py-2 px-2.5 text-right">Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {activeEnquiry.items.map((it) => (
+                      <tr key={it.id}>
+                        <td className="py-1.5 px-2.5 font-mono font-bold text-red-700 whitespace-nowrap">{it.sku}</td>
+                        <td className="py-1.5 px-2.5 font-semibold text-slate-900">{it.productName}</td>
+                        <td className="py-1.5 px-2.5 text-center font-bold whitespace-nowrap">{it.qty}</td>
+                        <td className="py-1.5 px-2.5 text-right font-mono whitespace-nowrap">{formatINR(it.unitPrice)}</td>
+                        <td className="py-1.5 px-2.5 text-right font-mono font-bold text-red-700 whitespace-nowrap">
+                          {formatINR(it.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                <div className="text-xs">
+                  <span className="text-slate-500">Current Status: </span>
+                  <b className="text-red-700 font-bold uppercase">{activeEnquiry.status}</b>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-500 block">Total Amount</span>
+                  <span className="text-lg font-mono font-black text-red-700">
+                    {formatINR(activeEnquiry.totalAmount)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Footer Summary */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-              <div className="text-xs">
-                <span className="text-slate-500">Current Status: </span>
-                <b className="text-red-700">{activeEnquiry.status}</b>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-500 block">Total Amount</span>
-                <span className="text-lg font-mono font-black text-red-700">
-                  {formatINR(activeEnquiry.totalAmount)}
-                </span>
-              </div>
-            </div>
+            {/* Sticky Action Footer */}
+            <div className="sticky bottom-0 z-30 bg-slate-900 text-white p-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <button
+                onClick={() => setActiveEnquiry(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors min-h-[44px] cursor-pointer"
+              >
+                Close
+              </button>
 
-            {/* Workflow Action inside Drawer */}
-            <div className="mt-4 flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-200">
-              {activeEnquiry.status === 'Pending' && (
-                <>
+              <div className="flex items-center gap-2 flex-wrap">
+                {activeEnquiry.status === 'Pending' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        handleStatusChange(activeEnquiry.id, 'Closed');
+                        setActiveEnquiry(null);
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-red-900/60 border border-red-700 text-red-200 font-bold text-xs hover:bg-red-800 transition-colors min-h-[44px] cursor-pointer"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleStatusChange(activeEnquiry.id, 'Success');
+                        setActiveEnquiry(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer"
+                    >
+                      Confirm Order
+                    </button>
+                  </>
+                )}
+
+                {activeEnquiry.status === 'Success' && !activeEnquiry.invoiceGenerated && (
                   <button
                     onClick={() => {
-                      handleStatusChange(activeEnquiry.id, 'Closed');
+                      const enq = activeEnquiry;
                       setActiveEnquiry(null);
+                      handleGenerateInvoiceAction(enq);
                     }}
-                    className="px-3 py-1.5 rounded bg-red-50 border border-red-200 text-red-800 font-bold text-xs hover:bg-red-100 transition-colors"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md flex items-center gap-1.5 min-h-[44px] cursor-pointer"
                   >
-                    Mark as Closed (Reject)
+                    <Sparkles className="w-4 h-4" /> Generate Invoice
                   </button>
+                )}
+
+                {activeEnquiry.status === 'Success' && activeEnquiry.invoiceGenerated && activeEnquiry.invoiceId && (
                   <button
                     onClick={() => {
-                      handleStatusChange(activeEnquiry.id, 'Success');
+                      const invId = activeEnquiry.invoiceId;
                       setActiveEnquiry(null);
+                      handleViewInvoice(invId!);
                     }}
-                    className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors"
+                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md flex items-center gap-1.5 min-h-[44px] cursor-pointer"
                   >
-                    Confirm Order (Mark Success)
+                    <Printer className="w-4 h-4" /> View Invoice
                   </button>
-                </>
-              )}
-
-              {activeEnquiry.status === 'Success' && !activeEnquiry.invoiceGenerated && (
-                <button
-                  onClick={() => {
-                    const enq = activeEnquiry;
-                    setActiveEnquiry(null);
-                    handleGenerateInvoiceAction(enq);
-                  }}
-                  className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> Generate GST Invoice & Deduct Stock
-                </button>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

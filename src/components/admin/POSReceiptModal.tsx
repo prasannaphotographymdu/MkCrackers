@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Printer, Receipt } from 'lucide-react';
 import { OfflineOrder, ShopDetails } from '../../types';
 import { formatINR } from '../../lib/utils';
+import { printPOSReceiptPDF } from '../../lib/printUtils';
 
 interface POSReceiptModalProps {
   order: OfflineOrder;
@@ -11,29 +12,29 @@ interface POSReceiptModalProps {
 
 export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDetails, onClose }) => {
   const handlePrint = () => {
-    window.print();
+    printPOSReceiptPDF(order, shopDetails);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white text-slate-900 rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-slate-800 print:hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-white text-slate-900 rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 relative my-auto">
+        {/* Sticky Top Header */}
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3.5 bg-slate-900 text-white border-b border-slate-800 shrink-0 print:hidden">
           <div className="flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base">POS Tax Invoice / Receipt</span>
+            <Receipt className="w-5 h-5 text-amber-400 shrink-0" />
+            <span className="font-bold text-sm sm:text-base truncate">POS Tax Invoice / Receipt</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              className="hidden sm:flex px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg items-center gap-1.5 transition-all shadow-md cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>Print Invoice</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
@@ -41,7 +42,7 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
         </div>
 
         {/* Printable Receipt Body */}
-        <div className="p-6 overflow-y-auto flex-1 text-xs font-mono print:p-0 print:text-black">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 text-xs font-mono print:p-0 print:text-black">
           {/* Shop Header */}
           <div className="text-center pb-4 border-b border-dashed border-slate-300">
             <h2 className="font-black text-lg text-slate-900 uppercase tracking-wide">{shopDetails.name}</h2>
@@ -165,6 +166,23 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
             <p>Wish you a Safe, Joyous and Sparkling Festival of Lights.</p>
             <p className="text-[9px] text-slate-400 mt-2 font-mono">Computer Generated POS Invoice &bull; No Signature Required</p>
           </div>
+        </div>
+
+        {/* Mobile Sticky Bottom Action Bar */}
+        <div className="sm:hidden sticky bottom-0 z-30 bg-slate-900 text-white p-3 border-t border-slate-800 flex items-center justify-between gap-2 shrink-0 print:hidden">
+          <button
+            onClick={handlePrint}
+            className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg min-h-[44px] cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Invoice</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl min-h-[44px] cursor-pointer"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

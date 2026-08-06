@@ -17,35 +17,35 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({ invoice, onC
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 animate-fade-in overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="bg-white border border-slate-300 rounded-md max-w-2xl w-full my-4 p-5 shadow-2xl relative text-slate-900 printable-document print:shadow-none print:border-none print:bg-white print:text-black print:my-0 print:w-full">
-        {/* Modal Action Controls (Hidden on print) */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 print:hidden no-print">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 animate-fade-in overflow-y-auto print:p-0 print:bg-white print:static">
+      <div className="bg-white border border-slate-300 rounded-2xl max-w-2xl w-full my-auto shadow-2xl relative text-slate-900 flex flex-col max-h-[92vh] overflow-hidden printable-document print:shadow-none print:border-none print:bg-white print:text-black print:my-0 print:w-full print:max-h-none">
+        {/* Sticky Modal Header Actions (Hidden on print) */}
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 bg-slate-900 text-white border-b border-slate-800 shrink-0 print:hidden no-print">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> B2B GST Tax Invoice Generated
+            <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[11px] flex items-center gap-1 border border-emerald-500/30">
+              <CheckCircle2 className="w-3.5 h-3.5" /> GST Invoice
             </span>
-            <span className="text-[11px] text-slate-500 font-mono">Inventory Deducted</span>
+            <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">{invoice.id}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="hidden sm:flex px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" /> Print / Download PDF
             </button>
             <button
               onClick={onClose}
-              className="p-1 rounded bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Printable Invoice Document Sheet */}
-        <div className="space-y-4 print:text-black">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 print:text-black print:p-0">
           {/* Invoice Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start border-b border-slate-200 pb-4 gap-3">
             <div>
@@ -184,6 +184,23 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({ invoice, onC
               <p className="border-t border-slate-300 pt-1">Authorized Signatory</p>
             </div>
           </div>
+        </div>
+
+        {/* Mobile Sticky Bottom Action Bar */}
+        <div className="sm:hidden sticky bottom-0 z-30 bg-slate-900 text-white p-3 border-t border-slate-800 flex items-center justify-between gap-2 shrink-0 print:hidden no-print">
+          <button
+            onClick={handlePrint}
+            className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg min-h-[44px] cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print / Download PDF</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl min-h-[44px] cursor-pointer"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

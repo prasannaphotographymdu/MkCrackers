@@ -129,11 +129,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           isJson(statsRes) ? statsRes.json() : Promise.resolve(null)
         ]);
 
-        if (cats && cats.length) setCategories(cats);
-        if (prods && prods.length) setProducts(prods);
-        if (enqs && enqs.length) setEnquiries(enqs);
-        if (invs && invs.length) setInvoices(invs);
-        if (offOrders && offOrders.length) setOfflineOrders(offOrders);
+        if (Array.isArray(cats) && cats.length) setCategories(cats);
+        if (Array.isArray(prods) && prods.length) setProducts(prods);
+        if (Array.isArray(enqs)) setEnquiries(enqs);
+        if (Array.isArray(invs)) setInvoices(invs);
+        if (Array.isArray(offOrders)) setOfflineOrders(offOrders);
 
         if (statsData) {
           setStats(statsData.stats);
@@ -148,6 +148,152 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       setIsLoading(false);
     }
   };
+
+  // Compute live fallbacks so Dashboard is NEVER empty even on static hosting or offline
+  const computedStats: DashboardStats = useMemo(() => {
+    if (stats) return stats;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const todayInvoiceSales = (invoices || [])
+      .filter((i) => i.createdAt && i.createdAt.startsWith(todayStr))
+      .reduce((s, i) => s + (i.grandTotal || 0), 0);
+    const todayPOSSales = (offlineOrders || [])
+      .filter((o) => o.createdAt && o.createdAt.startsWith(todayStr))
+      .reduce((s, o) => s + (o.grandTotal || 0), 0);
+    const todaySales = todayInvoiceSales + todayPOSSales;
+
+    const totalInvoiceSales = (invoices || []).reduce((s, i) => s + (i.grandTotal || 0), 0);
+    const totalPOSSales = (offlineOrders || []).reduce((s, o) => s + (o.grandTotal || 0), 0);
+    const totalSales = totalInvoiceSales + totalPOSSales;
+
+    const pendingOrders = (enquiries || []).filter((e) => e.status === 'Pending').length;
+    const closedOrders = (enquiries || []).filter((e) => e.status === 'Closed').length;
+    const totalSuccessfulOrders = (invoices || []).length + (offlineOrders || []).length;
+    const totalEnquiries = (enquiries || []).length;
+
+    const lowStockProducts = (products || []).filter((p) => p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length;
+    const outOfStockProducts = (products || []).filter((p) => p.stock === 0).length;
+    const inventoryValue = (products || []).reduce((s, p) => s + p.stock * p.sellingPrice, 0);
+
+    return {
+      todaySales,
+      totalSales,
+      totalSuccessfulOrders,
+      pendingOrders,
+      closedOrders,
+      totalEnquiries,
+      lowStockProducts,
+      outOfStockProducts,
+      inventoryValue
+    };
+  }, [stats, invoices, offlineOrders, enquiries, products]);
+
+  const computedDailySales: DailySalesData[] = useMemo(() => {
+    if (dailySales && dailySales.length > 0) return dailySales;
+
+    const days: { [key: string]: { sales: number; orders: number } } = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      days[key] = { sales: 0, orders: 0 };
+    }
+
+    (invoices || []).forEach((inv) => {
+      const day = inv.createdAt ? inv.createdAt.split('T')[0] : '';
+      if (days[day]) {
+        days[day].sales += inv.grandTotal || 0;
+        days[day].orders += 1;
+      }
+    });
+
+    (offlineOrders || []).forEach((off) => {
+      const day = off.createdAt ? off.createdAt.split('T')[0] : '';
+      if (days[day]) {
+        days[day].sales += off.grandTotal || 0;
+        days[day].orders += 1;
+      }
+    });
+
+    return Object.entries(days).map(([dateStr, val]) => ({
+      date: new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      sales: val.sales,
+      orders: val.orders
+    }));
+  }, [dailySales, invoices, offlineOrders]);
+
+  const computedMonthlySales: MonthlySalesData[] = useMemo(() => {
+    if (monthlySales && monthlySales.length > 0) return monthlySales;
+
+    const months: { [key: string]: number } = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months[key] = 0;
+    }
+
+    (invoices || []).forEach((inv) => {
+      if (inv.createdAt) {
+        const key = inv.createdAt.slice(0, 7);
+        if (months[key] !== undefined) {
+          months[key] += inv.grandTotal || 0;
+        }
+      }
+    });
+
+    (offlineOrders || []).forEach((off) => {
+      if (off.createdAt) {
+        const key = off.createdAt.slice(0, 7);
+        if (months[key] !== undefined) {
+          months[key] += off.grandTotal || 0;
+        }
+      }
+    });
+
+    return Object.entries(months).map(([mKey, sales]) => {
+      const [yr, mo] = mKey.split('-');
+      const dateObj = new Date(parseInt(yr), parseInt(mo) - 1, 1);
+      return {
+        month: dateObj.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        sales
+      };
+    });
+  }, [monthlySales, invoices, offlineOrders]);
+
+  const computedCategorySales: CategorySalesData[] = useMemo(() => {
+    if (categorySales && categorySales.length > 0) return categorySales;
+
+    const catMap: { [key: string]: number } = {};
+    (categories || []).forEach((c) => {
+      catMap[c.name] = 0;
+    });
+
+    (invoices || []).forEach((inv) => {
+      (inv.items || []).forEach((it) => {
+        const cat = it.category || 'General Crackers';
+        catMap[cat] = (catMap[cat] || 0) + (it.amount || 0);
+      });
+    });
+
+    (offlineOrders || []).forEach((off) => {
+      (off.items || []).forEach((it) => {
+        const cat = it.category || 'General Crackers';
+        catMap[cat] = (catMap[cat] || 0) + (it.amount || 0);
+      });
+    });
+
+    const result = Object.entries(catMap).map(([category, sales]) => ({
+      category,
+      sales
+    }));
+
+    if (result.length === 0) {
+      return [{ category: 'General Crackers', sales: 0 }];
+    }
+    return result;
+  }, [categorySales, categories, invoices, offlineOrders]);
 
   const handleCreateOfflineOrder = async (orderPayload: any): Promise<OfflineOrder> => {
     let data: OfflineOrder;
@@ -502,12 +648,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* Main Admin View Container */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
-        {currentTab === 'dashboard' && stats && (
+        {currentTab === 'dashboard' && (
           <AdminDashboard
-            stats={stats}
-            dailySales={dailySales}
-            monthlySales={monthlySales}
-            categorySales={categorySales}
+            stats={computedStats}
+            dailySales={computedDailySales}
+            monthlySales={computedMonthlySales}
+            categorySales={computedCategorySales}
             onNavigateTab={setTab}
           />
         )}
