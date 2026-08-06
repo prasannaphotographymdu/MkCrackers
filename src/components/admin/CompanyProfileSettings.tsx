@@ -83,11 +83,9 @@ export const CompanyProfileSettings: React.FC<CompanyProfileSettingsProps> = ({
   };
 
   const handleResetDefaults = () => {
-    if (window.confirm('Reset all company settings back to default factory profile?')) {
-      setFormData({ ...SHOP_INFO });
-      setHasChanges(true);
-      onShowToast('info', 'Reset to Defaults', 'Click "Save Changes" to confirm resetting settings.');
-    }
+    setFormData({ ...SHOP_INFO });
+    setHasChanges(true);
+    onShowToast('info', 'Reset to Defaults', 'Click "Save Changes" to confirm resetting settings.');
   };
 
   return (

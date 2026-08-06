@@ -458,10 +458,8 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm(`Delete product ${p.name}?`)) {
-                              onDeleteProduct(p.id);
-                              onShowToast('info', 'Deleted', `${p.name} removed.`);
-                            }
+                            onDeleteProduct(p.id);
+                            onShowToast('info', 'Deleted', `${p.name} removed from product catalog.`);
                           }}
                           className="p-1 rounded bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
                           title="Delete Product"

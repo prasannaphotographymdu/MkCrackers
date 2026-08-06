@@ -16,9 +16,19 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
   iframe.style.visibility = 'hidden';
   document.body.appendChild(iframe);
 
-  const doc = iframe.contentWindow?.document;
+  let doc: Document | null | undefined = null;
+  try {
+    doc = iframe.contentDocument || iframe.contentWindow?.document;
+  } catch (err) {
+    console.warn('Cannot access iframe document for printing:', err);
+  }
+
   if (!doc) {
-    window.print();
+    try {
+      window.print();
+    } catch (e) {
+      // ignore frame print restrictions
+    }
     return;
   }
 
@@ -274,7 +284,12 @@ export const printInvoicePDF = (invoice: Invoice) => {
   iframe.style.visibility = 'hidden';
   document.body.appendChild(iframe);
 
-  const doc = iframe.contentWindow?.document;
+  let doc: Document | null | undefined = null;
+  try {
+    doc = iframe.contentDocument || iframe.contentWindow?.document;
+  } catch (err) {
+    console.warn('Cannot access iframe document for printing:', err);
+  }
   if (!doc) return;
 
   const itemsRows = invoice.items
@@ -609,7 +624,12 @@ export const printReportPDF = (title: string, reportTableHtml: string) => {
   iframe.style.visibility = 'hidden';
   document.body.appendChild(iframe);
 
-  const doc = iframe.contentWindow?.document;
+  let doc: Document | null | undefined = null;
+  try {
+    doc = iframe.contentDocument || iframe.contentWindow?.document;
+  } catch (err) {
+    console.warn('Cannot access iframe document for printing:', err);
+  }
   if (!doc) return;
 
   doc.open();
