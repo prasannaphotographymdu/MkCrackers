@@ -117,26 +117,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         fetch('/api/stats')
       ]);
 
-      const [cats, prods, enqs, invs, offOrders, statsData] = await Promise.all([
-        catsRes.json(),
-        prodsRes.json(),
-        enqRes.json(),
-        invRes.json(),
-        offlineRes.json(),
-        statsRes.json()
-      ]);
+      const isJson = (r: Response) => r.ok && r.headers.get('content-type')?.includes('application/json');
 
-      if (cats && cats.length) setCategories(cats);
-      if (prods && prods.length) setProducts(prods);
-      if (enqs && enqs.length) setEnquiries(enqs);
-      if (invs && invs.length) setInvoices(invs);
-      if (offOrders && offOrders.length) setOfflineOrders(offOrders);
+      if (isJson(catsRes) && isJson(prodsRes)) {
+        const [cats, prods, enqs, invs, offOrders, statsData] = await Promise.all([
+          catsRes.json(),
+          prodsRes.json(),
+          isJson(enqRes) ? enqRes.json() : Promise.resolve([]),
+          isJson(invRes) ? invRes.json() : Promise.resolve([]),
+          isJson(offlineRes) ? offlineRes.json() : Promise.resolve([]),
+          isJson(statsRes) ? statsRes.json() : Promise.resolve(null)
+        ]);
 
-      if (statsData) {
-        setStats(statsData.stats);
-        setDailySales(statsData.dailySales);
-        setMonthlySales(statsData.monthlySales);
-        setCategorySales(statsData.categorySales);
+        if (cats && cats.length) setCategories(cats);
+        if (prods && prods.length) setProducts(prods);
+        if (enqs && enqs.length) setEnquiries(enqs);
+        if (invs && invs.length) setInvoices(invs);
+        if (offOrders && offOrders.length) setOfflineOrders(offOrders);
+
+        if (statsData) {
+          setStats(statsData.stats);
+          setDailySales(statsData.dailySales);
+          setMonthlySales(statsData.monthlySales);
+          setCategorySales(statsData.categorySales);
+        }
       }
     } catch (err) {
       console.warn('Falling back to Firestore snapshot data...');
@@ -146,100 +150,165 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleCreateOfflineOrder = async (orderPayload: any): Promise<OfflineOrder> => {
-    const res = await fetch('/api/offline-orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderPayload)
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.message || 'Failed to generate offline POS bill');
+    let data: OfflineOrder;
+    try {
+      const res = await fetch('/api/offline-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload)
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        data = await res.json();
+      } else {
+        throw new Error('Static hosting fallback');
+      }
+    } catch (err) {
+      data = {
+        id: `POS-${Date.now().toString().slice(-6)}`,
+        billNumber: `POS-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+        customerName: orderPayload.customerName || 'Walk-in Customer',
+        customerPhone: orderPayload.customerPhone || orderPayload.phone || '',
+        subtotal: orderPayload.subtotal || 0,
+        gstAmount: orderPayload.gstAmount || 0,
+        discountAmount: orderPayload.discountAmount || 0,
+        grandTotal: orderPayload.grandTotal || orderPayload.totalAmount || 0,
+        paymentMode: orderPayload.paymentMode || 'Cash',
+        items: orderPayload.items || [],
+        createdAt: new Date().toISOString()
+      };
     }
 
-    // Atomic sync to Firestore offlineOrders collection & deduct stock in Firestore
     try {
       await saveOfflineOrderToFirestore(data);
     } catch (fsErr) {
       console.warn('Firestore offline sync notice:', fsErr);
     }
 
-    await loadAllAdminData();
     return data;
   };
 
   // Product CRUD
   const handleCreateProduct = async (prodData: Partial<Product>) => {
-    const res = await fetch('/api/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(prodData)
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Failed to create product');
+    let created: Product;
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prodData)
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        created = await res.json();
+      } else {
+        throw new Error('Static mode');
+      }
+    } catch (err) {
+      created = {
+        id: `PROD-${Date.now().toString().slice(-6)}`,
+        name: prodData.name || 'New Product',
+        sku: prodData.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+        categoryId: prodData.categoryId || 'c1',
+        purchasePrice: prodData.purchasePrice || 0,
+        sellingPrice: prodData.sellingPrice || 0,
+        itemsPerPack: prodData.itemsPerPack || '1 Box',
+        gstPercent: prodData.gstPercent || 18,
+        openingStock: prodData.openingStock || 0,
+        currentStock: prodData.currentStock || 0,
+        lowStockLimit: prodData.lowStockLimit || 10,
+        status: prodData.status || 'active',
+        description: prodData.description || '',
+        image: prodData.image || ''
+      };
     }
-    const created: Product = await res.json();
     await saveProductToFirestore(created);
-    await loadAllAdminData();
   };
 
   const handleUpdateProduct = async (id: string, prodData: Partial<Product>) => {
-    const res = await fetch(`/api/products/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(prodData)
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Failed to update product');
+    let updated: Product;
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prodData)
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        updated = await res.json();
+      } else {
+        throw new Error('Static mode');
+      }
+    } catch (err) {
+      const existing = products.find((p) => p.id === id);
+      updated = {
+        ...(existing || {
+          id,
+          name: '',
+          sku: '',
+          categoryId: '',
+          purchasePrice: 0,
+          sellingPrice: 0,
+          itemsPerPack: '1 Box',
+          gstPercent: 18,
+          openingStock: 0,
+          currentStock: 0,
+          lowStockLimit: 10,
+          description: '',
+          image: '',
+          status: 'active'
+        }),
+        ...prodData
+      };
     }
-    const updated: Product = await res.json();
     await saveProductToFirestore(updated);
-    await loadAllAdminData();
   };
 
   const handleDeleteProduct = async (id: string) => {
-    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete product');
+    try {
+      await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    } catch (err) {}
     await deleteProductFromFirestore(id);
-    await loadAllAdminData();
   };
 
   const handleBulkImportCSV = async (items: any[]) => {
-    const res = await fetch('/api/products/bulk-import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Bulk import failed');
-
-    // Sync imported products to Firestore
     try {
-      const refreshedProds = await (await fetch('/api/products?status=all')).json();
-      for (const p of refreshedProds) {
-        await saveProductToFirestore(p);
+      const res = await fetch('/api/products/bulk-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        return await res.json();
       }
-    } catch (fsErr) {
-      console.warn('Firestore bulk sync notice:', fsErr);
-    }
+    } catch (err) {}
 
-    await loadAllAdminData();
-    return data;
+    // Firestore direct bulk import fallback
+    for (const item of items) {
+      const p: Product = {
+        id: `PROD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: item.name || 'Imported Product',
+        sku: item.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+        categoryId: item.categoryId || 'c1',
+        purchasePrice: Number(item.purchasePrice) || 0,
+        sellingPrice: Number(item.sellingPrice) || 0,
+        itemsPerPack: item.itemsPerPack || '1 Box',
+        gstPercent: Number(item.gstPercent) || 18,
+        openingStock: Number(item.currentStock) || 0,
+        currentStock: Number(item.currentStock) || 0,
+        lowStockLimit: Number(item.lowStockLimit) || 10,
+        status: item.status === 'inactive' ? 'inactive' : 'active',
+        description: item.description || '',
+        image: item.image || ''
+      };
+      await saveProductToFirestore(p);
+    }
+    return { count: items.length };
   };
 
   // Stock Update
   const handleUpdateStock = async (productId: string, newStock: number) => {
-    const res = await fetch(`/api/products/${productId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentStock: newStock })
-    });
-    if (!res.ok) throw new Error('Failed to update stock');
-    const updated: Product = await res.json();
-    await saveProductToFirestore(updated);
-    await loadAllAdminData();
+    const existing = products.find((p) => p.id === productId);
+    if (existing) {
+      const updated = { ...existing, currentStock: newStock, updatedAt: new Date().toISOString() };
+      await saveProductToFirestore(updated);
+    }
   };
 
   // Enquiry Status Update
@@ -248,34 +317,67 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     status: 'Pending' | 'Success' | 'Closed',
     notes?: string
   ) => {
-    const res = await fetch(`/api/enquiries/${id}/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, notes })
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Failed to update status');
-    }
+    try {
+      await fetch(`/api/enquiries/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, notes })
+      });
+    } catch (err) {}
     await updateEnquiryStatusInFirestore(id, status, notes);
-    await loadAllAdminData();
   };
 
   // Generate Invoice Action
   const handleGenerateInvoice = async (enquiryId: string): Promise<Invoice> => {
-    const res = await fetch('/api/invoices/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enquiryId })
-    });
-
-    const data: Invoice = await res.json();
-    if (!res.ok) {
-      throw new Error((data as any).message || 'Failed to generate invoice');
+    let data: Invoice;
+    try {
+      const res = await fetch('/api/invoices/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enquiryId })
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        data = await res.json();
+      } else {
+        throw new Error('Static mode');
+      }
+    } catch (err) {
+      const enq = enquiries.find((e) => e.id === enquiryId);
+      const invId = `INV-${Date.now().toString().slice(-6)}`;
+      data = {
+        id: invId,
+        enquiryId,
+        enquiryNo: enquiryId,
+        customerId: enq?.customerId || 'CUST-001',
+        customerDetails: enq?.customerDetails || {
+          name: 'Customer',
+          mobile: '',
+          address: ''
+        },
+        date: new Date().toISOString().split('T')[0],
+        subtotal: enq?.totalAmount || 0,
+        gstAmount: Math.round((enq?.totalAmount || 0) * 0.18),
+        grandTotal: Math.round((enq?.totalAmount || 0) * 1.18),
+        status: 'Generated',
+        items: (enq?.items || []).map((i, idx) => ({
+          id: `II-${Date.now()}-${idx}`,
+          invoiceId: invId,
+          productId: i.productId,
+          productName: i.productName || 'Firecracker Item',
+          sku: i.sku || '',
+          qty: i.qty,
+          unitPrice: i.unitPrice,
+          sellingPrice: i.unitPrice,
+          gstPercent: 18,
+          gstAmount: Math.round(i.qty * i.unitPrice * 0.18),
+          amount: Math.round(i.qty * i.unitPrice * 1.18)
+        })),
+        shopDetails,
+        createdAt: new Date().toISOString()
+      };
     }
 
     await saveInvoiceToFirestore(data);
-    await loadAllAdminData();
     return data;
   };
 

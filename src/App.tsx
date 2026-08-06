@@ -93,9 +93,14 @@ export default function App() {
         fetch('/api/products?status=active')
       ]);
 
-      const [catsData, prodsData] = await Promise.all([catsRes.json(), prodsRes.json()]);
-      if (catsData && catsData.length > 0) setCategories(catsData);
-      if (prodsData && prodsData.length > 0) setProducts(prodsData);
+      const isCatsJson = catsRes.ok && catsRes.headers.get('content-type')?.includes('application/json');
+      const isProdsJson = prodsRes.ok && prodsRes.headers.get('content-type')?.includes('application/json');
+
+      if (isCatsJson && isProdsJson) {
+        const [catsData, prodsData] = await Promise.all([catsRes.json(), prodsRes.json()]);
+        if (catsData && catsData.length > 0) setCategories(catsData);
+        if (prodsData && prodsData.length > 0) setProducts(prodsData);
+      }
     } catch (err) {
       console.warn('Falling back to Firestore snapshot...');
     }
@@ -104,7 +109,7 @@ export default function App() {
   const fetchShopInfo = async () => {
     try {
       const res = await fetch('/api/shop-info');
-      if (res.ok) {
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
         const data = await res.json();
         setShopDetails(data);
       }
@@ -118,13 +123,16 @@ export default function App() {
     await saveShopDetailsToFirestore(updated);
     setShopDetails(updated);
 
-    // Sync to Express API
+    // Sync to Express API if running
     try {
-      await fetch('/api/shop-info', {
+      const res = await fetch('/api/shop-info', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)
       });
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+        // Static hosting mode
+      }
     } catch (err) {
       console.warn('Backend API sync fallback warning:', err);
     }
@@ -175,15 +183,55 @@ export default function App() {
       });
 
     try {
-      const res = await fetch('/api/enquiries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerDetails, items })
-      });
+      let data: Enquiry;
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Enquiry submission failed');
+      try {
+        const res = await fetch('/api/enquiries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerDetails, items })
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          throw new Error('Static hosting mode');
+        }
+      } catch (apiErr) {
+        // Fallback for Firebase Hosting static deployment without Express backend
+        const enqId = `ENQ-${Date.now().toString().slice(-6)}`;
+        const totalAmount = items.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+        const totalItems = items.reduce((sum, item) => sum + item.qty, 0);
+
+        data = {
+          id: enqId,
+          customerId: `CUST-${Date.now().toString().slice(-4)}`,
+          customerDetails: {
+            name: customerDetails.name,
+            mobile: customerDetails.mobile,
+            address: customerDetails.address
+          },
+          totalItems,
+          totalAmount,
+          status: 'Pending',
+          items: items.map((item, idx) => {
+            const prod = products.find((p) => p.id === item.productId);
+            return {
+              id: `EI-${Date.now()}-${idx}`,
+              enquiryId: enqId,
+              productId: item.productId,
+              productName: item.productName || prod?.name || 'Firecracker Item',
+              sku: item.sku || prod?.sku || '',
+              qty: item.qty,
+              unitPrice: item.unitPrice,
+              amount: item.qty * item.unitPrice,
+              itemsPerPack: prod?.itemsPerPack || '1 Box'
+            };
+          }),
+          createdAt: new Date().toISOString(),
+          invoiceGenerated: false
+        };
       }
 
       // Sync enquiry to Firestore
@@ -198,7 +246,7 @@ export default function App() {
       setSubmittedEnquiry(data);
       showToast('success', 'Enquiry Created!', `Enquiry ${data.id} registered.`);
     } catch (err: any) {
-      throw err;
+      showToast('error', 'Enquiry Failed', err?.message || 'Failed to submit enquiry');
     } finally {
       setIsSubmittingEnquiry(false);
     }
