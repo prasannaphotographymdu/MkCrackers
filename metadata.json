@@ -1,0 +1,6 @@
+{
+  "name": "Sri Laxmi Crackers - B2B Wholesale Firecracker Shop",
+  "description": "B2B enquiry-based wholesale firecracker app with interactive catalog, minimum order validation, enquiry checkout, admin analytics dashboard, stock management, invoice PDF generation, and CSV reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

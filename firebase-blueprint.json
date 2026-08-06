@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "products": {
+      "title": "Products",
+      "description": "Fireworks product catalog",
+      "properties": {
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "boxQty": { "type": "number" },
+        "pricePerBox": { "type": "number" },
+        "mrp": { "type": "number" },
+        "inStockCount": { "type": "number" },
+        "stockStatus": { "type": "string" },
+        "isBestSeller": { "type": "boolean" }
+      }
+    },
+    "categories": {
+      "title": "Categories",
+      "description": "Firework product categories",
+      "properties": {
+        "name": { "type": "string" }
+      }
+    },
+    "enquiries": {
+      "title": "Enquiries",
+      "description": "Customer B2B order enquiries",
+      "properties": {
+        "enquiryNo": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "totalItems": { "type": "number font-mono" }
+      }
+    },
+    "invoices": {
+      "title": "Invoices",
+      "description": "Generated GST Tax Invoices",
+      "properties": {
+        "enquiryNo": { "type": "string" },
+        "grandTotal": { "type": "number" }
+      }
+    },
+    "shopDetails": {
+      "title": "Shop Details",
+      "description": "Company branding, GSTIN, and bank details",
+      "properties": {
+        "name": { "type": "string" },
+        "gstin": { "type": "string" }
+      }
+    },
+    "offlineOrders": {
+      "title": "Offline Orders",
+      "description": "Point of sale (POS) counter sales and offline bills",
+      "properties": {
+        "billNumber": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "grandTotal": { "type": "number" },
+        "paymentMode": { "type": "string" },
+        "cashAmount": { "type": "number" },
+        "upiAmount": { "type": "number" }
+      }
+    }
+  }
+}
