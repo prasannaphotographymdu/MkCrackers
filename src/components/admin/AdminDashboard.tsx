@@ -17,15 +17,11 @@ import {
   Bar,
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
-  Legend
+  ResponsiveContainer
 } from 'recharts';
 import { DashboardStats, DailySalesData, MonthlySalesData, CategorySalesData, AdminTab } from '../../types';
 import { formatINR, formatNumber } from '../../lib/utils';
@@ -38,13 +34,10 @@ interface AdminDashboardProps {
   onNavigateTab: (tab: AdminTab) => void;
 }
 
-const CATEGORY_COLORS = ['#f97316', '#ef4444', '#eab308', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'];
-
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   stats,
   dailySales,
   monthlySales,
-  categorySales,
   onNavigateTab
 }) => {
   return (
@@ -266,54 +259,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Line type="monotone" dataKey="sales" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Category Sales Distribution Pie Chart */}
-        <div className="bg-white border border-slate-200 rounded-md p-4 shadow-sm lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-xs text-slate-900 uppercase tracking-tight">Category Sales Distribution</h3>
-            <span className="text-[10px] text-slate-500">Revenue Breakdown by Product Line</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categorySales}
-                    dataKey="sales"
-                    nameKey="category"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={75}
-                    label={({ category, percent }) => `${category} (${(percent * 100).toFixed(0)}%)`}
-                  >
-                    {categorySales.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderRadius: '6px', fontSize: '11px' }}
-                    formatter={(val: number) => [formatINR(val), 'Revenue']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-              {categorySales.map((cat, idx) => (
-                <div key={cat.category} className="flex items-center justify-between text-xs p-1.5 rounded bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] }}
-                    />
-                    <span className="font-semibold text-slate-800 text-[11px]">{cat.category}</span>
-                  </div>
-                  <span className="font-bold font-mono text-red-700 text-xs">{formatINR(cat.sales)}</span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>
