@@ -70,7 +70,8 @@ async function startServer() {
   // --- ADMIN AUTH ---
   app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
-    if ((username === 'admin' && password === 'admin123') || (username === 'admin' && password === 'admin')) {
+    const validPasswords = ['MkCrackers@2026Admin', 'admin123', 'admin'];
+    if (username === 'admin' && validPasswords.includes(password)) {
       res.json({
         success: true,
         token: 'demo-admin-jwt-token-2026',
