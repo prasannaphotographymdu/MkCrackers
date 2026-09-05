@@ -115,22 +115,32 @@ export default function App() {
   useEffect(() => {
     // 1. Fetch from REST API immediately for instant paint and offline/permission fallback
     fetch('/api/products')
-      .then(res => res.json())
+      .then(res => {
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+          return res.json();
+        }
+        return null;
+      })
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           setProducts(prev => prev.length === 0 ? data : prev);
         }
       })
-      .catch(err => console.warn('REST Products fetch failed', err));
+      .catch(err => console.warn('REST Products fetch failed:', err));
 
     fetch('/api/categories')
-      .then(res => res.json())
+      .then(res => {
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+          return res.json();
+        }
+        return null;
+      })
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           setCategories(prev => prev.length === 0 ? data : prev);
         }
       })
-      .catch(err => console.warn('REST Categories fetch failed', err));
+      .catch(err => console.warn('REST Categories fetch failed:', err));
 
     let unsubProds = () => {};
     let unsubCats = () => {};

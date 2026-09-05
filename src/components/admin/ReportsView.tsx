@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   FileSpreadsheet,
   Download,
@@ -12,32 +12,151 @@ import {
 } from 'lucide-react';
 import { formatINR, downloadCSV } from '../../lib/utils';
 import { printReportPDF } from '../../lib/printUtils';
+import { Product, Category, Invoice, Enquiry, OfflineOrder } from '../../types';
 
 interface ReportsViewProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, desc?: string) => void;
+  products: Product[];
+  categories: Category[];
+  invoices: Invoice[];
+  enquiries: Enquiry[];
+  offlineOrders: OfflineOrder[];
 }
 
-export const ReportsView: React.FC<ReportsViewProps> = ({ onShowToast }) => {
+export const ReportsView: React.FC<ReportsViewProps> = ({ 
+  onShowToast, 
+  products, 
+  categories, 
+  invoices, 
+  enquiries, 
+  offlineOrders 
+}) => {
   const [activeTab, setActiveTab] = useState<'sales' | 'inventory' | 'orders' | 'categories' | 'offline' | 'gst'>('sales');
-  const [reportData, setReportData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  const reportData = useMemo(() => {
+    // Sales Report
+    const salesReport = invoices.map((inv) => ({
+      invoiceNo: inv.id,
+      enquiryNo: inv.enquiryNo,
+      date: new Date(inv.date).toLocaleDateString(),
+      customerName: inv.customerDetails.name,
+      mobile: inv.customerDetails.mobile,
+      itemsCount: inv.items.reduce((s, i) => s + i.qty, 0),
+      subtotal: inv.subtotal,
+      gstAmount: inv.gstAmount,
+      grandTotal: inv.grandTotal,
+      status: inv.status
+    }));
 
-  const fetchReports = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/reports');
-      const data = await res.json();
-      setReportData(data);
-    } catch (err) {
-      onShowToast('error', 'Fetch Error', 'Failed to load report analytics.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // Inventory Report
+    const inventoryReport = products.map((p) => {
+      const cat = categories.find((c) => c.id === p.categoryId);
+      let stockStatus = 'In Stock';
+      if ((p.currentStock || 0) === 0) stockStatus = 'Out of Stock';
+      else if ((p.currentStock || 0) <= (p.lowStockLimit || 5)) stockStatus = 'Low Stock';
+
+      return {
+        sku: p.sku,
+        name: p.name,
+        category: cat ? cat.name : 'Uncategorized',
+        itemsPerPack: p.itemsPerPack,
+        purchasePrice: p.purchasePrice,
+        sellingPrice: p.sellingPrice,
+        currentStock: p.currentStock,
+        status: stockStatus,
+        stockValue: (p.currentStock || 0) * p.purchasePrice
+      };
+    });
+
+    // Orders/Enquiries Report
+    const orderReport = enquiries.map((enq) => ({
+      enquiryNo: enq.id,
+      date: new Date(enq.createdAt).toLocaleDateString(),
+      customerName: enq.customerDetails.name,
+      mobile: enq.customerDetails.mobile,
+      itemsCount: enq.items.reduce((s, i) => s + i.qty, 0),
+      totalAmount: enq.totalAmount,
+      status: enq.status,
+      invoiceGenerated: enq.invoiceGenerated ? 'YES' : 'NO'
+    }));
+
+    // Categories Sales & Stock Value
+    const categoryReport = categories.map((cat) => {
+      const catProds = products.filter((p) => p.categoryId === cat.id);
+      const totalStock = catProds.reduce((s, p) => s + (p.currentStock || 0), 0);
+      const stockValue = catProds.reduce((s, p) => s + ((p.currentStock || 0) * p.purchasePrice), 0);
+
+      // Calc sales value from invoices
+      let salesValue = 0;
+      invoices.forEach(inv => {
+        if (inv.status === 'confirmed') {
+          inv.items.forEach(item => {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod && prod.categoryId === cat.id) {
+              salesValue += (item.qty * item.price);
+            }
+          });
+        }
+      });
+
+      return {
+        category: cat.name,
+        totalProducts: catProds.length,
+        totalStock,
+        stockValue,
+        salesValue
+      };
+    });
+
+    const offlineReport = offlineOrders.map(o => ({
+      billNumber: o.billNumber,
+      date: new Date(o.date).toLocaleString(),
+      customerName: o.customerName || 'Walk-in Customer',
+      customerPhone: o.customerPhone || 'N/A',
+      paymentMode: o.paymentMode,
+      cashAmount: o.cashAmount || 0,
+      upiAmount: o.upiAmount || 0,
+      subtotal: o.subtotal,
+      gstAmount: o.gstAmount,
+      grandTotal: o.grandTotal
+    }));
+
+    const gstReport = [
+      ...invoices.filter(i => i.gstAmount > 0).map(i => ({
+        billNo: i.id,
+        source: 'Online B2B',
+        date: new Date(i.date).toLocaleDateString(),
+        customerName: i.customerDetails.name,
+        customerPhone: i.customerDetails.mobile,
+        itemsCount: i.items.reduce((sum, item) => sum + item.qty, 0),
+        subtotal: i.subtotal,
+        gstAmount: i.gstAmount,
+        grandTotal: i.grandTotal
+      })),
+      ...offlineOrders.filter(o => o.gstAmount > 0).map(o => ({
+        billNo: o.billNumber,
+        source: 'POS Offline',
+        date: new Date(o.date).toLocaleDateString(),
+        customerName: o.customerName || 'Walk-in',
+        customerPhone: o.customerPhone || 'N/A',
+        itemsCount: o.items.reduce((sum, item) => sum + item.qty, 0),
+        subtotal: o.subtotal,
+        gstAmount: o.gstAmount,
+        grandTotal: o.grandTotal
+      }))
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return {
+      salesReport,
+      inventoryReport,
+      orderReport,
+      categoryReport,
+      offlineReport,
+      gstReport
+    };
+  }, [products, categories, invoices, enquiries, offlineOrders]);
+
+  const isLoading = false;
 
   const handleExportCSV = () => {
     if (!reportData) return;

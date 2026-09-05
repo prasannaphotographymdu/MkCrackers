@@ -785,7 +785,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           />
         )}
 
-        {currentTab === 'reports' && <ReportsView onShowToast={onShowToast} />}
+        {currentTab === 'reports' && (
+          <ReportsView 
+            onShowToast={onShowToast} 
+            products={products}
+            categories={categories}
+            invoices={invoices}
+            enquiries={enquiries}
+            offlineOrders={offlineOrders}
+          />
+        )}
 
         {currentTab === 'settings' && (
           <CompanyProfileSettings
