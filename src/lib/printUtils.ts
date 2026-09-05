@@ -27,7 +27,7 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
     try {
       window.print();
     } catch (e) {
-      // ignore frame print restrictions
+      // ignore
     }
     return;
   }
@@ -42,13 +42,15 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
         const gst = item.gstPercent || 18;
         return `
     <tr>
-      <td style="padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
-        <div style="font-weight: 600; color: #0f172a; font-size: 11px;">${pName}</div>
-        <div style="font-size: 9px; color: #64748b;">SKU: ${pSku} &bull; GST ${gst}%</div>
-      </td>
-      <td style="text-align: center; font-weight: bold; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${item.qty}</td>
-      <td style="text-align: right; font-family: monospace; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(item.unitPrice)}</td>
-      <td style="text-align: right; font-family: monospace; font-weight: bold; color: #0f172a; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">${formatINR(lineAmount)}</td>
+      <td style="text-align: center; font-size: 11px;">${idx + 1}</td>
+      <td style="font-family: monospace; font-weight: bold; color: #b91c1c; font-size: 11px;">${pSku}</td>
+      ${order.isGstBill ? `<td style="font-family: monospace; color: #475569; font-size: 11px;">${item.hsnCode || '36041000'}</td>` : ''}
+      <td style="font-weight: 600; color: #0f172a; font-size: 11px;">${pName}</td>
+      <td style="text-align: center; font-weight: bold; font-family: monospace; font-size: 11px;">${item.qty}</td>
+      <td style="text-align: right; font-family: monospace; font-size: 11px;">${formatINR(item.unitPrice)}</td>
+      ${order.isGstBill ? `<td style="text-align: right; font-family: monospace; font-size: 11px;">${gst}%</td>
+      <td style="text-align: right; font-family: monospace; color: #475569; font-size: 11px;">${formatINR(item.gstAmount || 0)}</td>` : ''}
+      <td style="text-align: right; font-family: monospace; font-weight: bold; color: #b91c1c; font-size: 11px;">${formatINR(lineAmount)}</td>
     </tr>
   `;
       }
@@ -70,6 +72,40 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
   const displayGst = order.gstAmount || Number(calcGstSum.toFixed(2));
   const displayGrandTotal = order.grandTotal || Math.max(0, Math.round(calcTotalSum - (order.discountAmount || 0)));
 
+  const bankSection = shopDetails.bankName
+    ? `
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 10px; margin-bottom: 8px;">
+      <p style="font-weight: bold; color: #1e293b; margin: 0 0 2px 0; font-family: sans-serif; text-transform: uppercase;">Bank Payment Details:</p>
+      <p style="margin: 2px 0;">Bank: <b>${shopDetails.bankName}</b> | A/C Name: <b>${shopDetails.accountName}</b></p>
+      <p style="margin: 2px 0;">A/C No: <b>${shopDetails.accountNumber}</b> | IFSC: <b>${shopDetails.ifscCode}</b></p>
+      ${shopDetails.upiId ? `<p style="margin: 2px 0;">UPI ID: <b>${shopDetails.upiId}</b></p>` : ''}
+    </div>
+  `
+    : '';
+
+  const termsText = (shopDetails.terms || '1. Goods once sold will not be taken back or exchanged.\n2. Transport & freight charges extra at actuals during dispatch.\n3. Subject to Sivakasi Jurisdiction.').replace(/\n/g, '<br/>');
+
+  const discountRow = order.discountAmount
+    ? `
+      <div class="totals-row" style="color: #15803d;">
+        <span>Discount:</span>
+        <span>-${formatINR(order.discountAmount)}</span>
+      </div>
+    `
+    : '';
+
+  const paymentDetails = `
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 10px; margin-top: 8px;">
+      <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;">
+        <span>Payment Mode:</span>
+        <span style="text-transform: uppercase; color: #b45309;">${order.paymentMode}</span>
+      </div>
+      ${order.paymentMode === 'Cash' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash Tendered:</span><span>${formatINR(order.cashAmount || displayGrandTotal)}</span></div>` : ''}
+      ${order.paymentMode === 'UPI' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>UPI Paid:</span><span>${formatINR(order.upiAmount || displayGrandTotal)}</span></div>${order.upiRefNo ? `<div style="color: #64748b; font-family: monospace; margin-top: 2px;">Ref: ${order.upiRefNo}</div>` : ''}` : ''}
+      ${order.paymentMode === 'Split' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash:</span><span>${formatINR(order.cashAmount || 0)}</span></div><div style="display: flex; justify-content: space-between;"><span>UPI:</span><span>${formatINR(order.upiAmount || 0)}</span></div>` : ''}
+    </div>
+  `;
+
   doc.open();
   doc.write(`
     <!DOCTYPE html>
@@ -80,136 +116,221 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
         <style>
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 12mm;
           }
-          * { box-sizing: border-box; }
+          * {
+            box-sizing: border-box;
+          }
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #0f172a;
             background: #ffffff;
             margin: 0;
             padding: 0;
-            font-size: 11px;
+            font-size: 12px;
             line-height: 1.4;
           }
-          .receipt-box {
+          .invoice-box {
             width: 100%;
-            max-width: 480px;
+            max-width: 800px;
             margin: 0 auto;
-            border: 1px solid #e2e8f0;
-            padding: 16px;
-            border-radius: 8px;
+            padding: 0;
           }
-          .header {
-            text-align: center;
-            border-bottom: 1px dashed #cbd5e1;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
+          .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
           }
-          .title {
-            font-size: 18px;
-            font-weight: 900;
-            text-transform: uppercase;
-            margin: 0;
+          .shop-title {
+            font-size: 20px;
+            font-weight: 800;
             color: #0f172a;
+            margin: 0;
           }
-          .tagline {
-            font-size: 10px;
+          .shop-tagline {
+            font-size: 11px;
             color: #b91c1c;
             font-weight: 600;
+            margin: 2px 0 6px 0;
+          }
+          .shop-info {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.4;
+          }
+          .inv-badge-card {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            padding: 10px 14px;
+            border-radius: 6px;
+            text-align: right;
+            min-width: 200px;
+          }
+          .inv-badge-title {
+            font-size: 10px;
+            font-weight: 800;
+            color: #b91c1c;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          }
+          .inv-id {
+            font-size: 16px;
+            font-weight: 800;
+            font-family: monospace;
+            color: #0f172a;
             margin: 2px 0;
           }
-          .info {
-            font-size: 10px;
-            color: #64748b;
+          .customer-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
           }
-          .meta-table {
-            width: 100%;
+          .customer-label {
             font-size: 10px;
-            margin-bottom: 10px;
-            border-bottom: 1px dashed #cbd5e1;
-            padding-bottom: 8px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+          }
+          .grid-2 {
+            display: table;
+            width: 100%;
+          }
+          .col-half {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
           }
           .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-between: 10px;
+            margin-bottom: 16px;
           }
           .items-table th {
-            text-align: left;
-            font-size: 9px;
+            background-color: #f1f5f9;
+            color: #334155;
+            font-weight: 700;
             text-transform: uppercase;
-            color: #64748b;
-            border-bottom: 1px solid #cbd5e1;
-            padding-bottom: 4px;
+            font-size: 10px;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            text-align: left;
           }
-          .totals {
-            border-top: 1px dashed #cbd5e1;
-            padding-top: 8px;
-            margin-top: 10px;
-            font-size: 11px;
+          .items-table td {
+            padding: 7px 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          .totals-box {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 10px 12px;
+            width: 240px;
+            float: right;
           }
           .totals-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 3px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 4px;
             color: #475569;
           }
-          .grand-total {
+          .totals-grand {
             display: flex;
             justify-content: space-between;
-            font-weight: 900;
+            font-family: monospace;
             font-size: 14px;
-            color: #0f172a;
-            border-top: 1px solid #0f172a;
+            font-weight: 800;
+            color: #b91c1c;
+            border-top: 1px solid #cbd5e1;
             padding-top: 6px;
             margin-top: 4px;
           }
-          .payment-box {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 8px 10px;
-            border-radius: 6px;
-            margin-top: 8px;
-            font-size: 10px;
+          .footer-sign {
+            margin-top: 40px;
+            display: table;
+            width: 100%;
           }
-          .footer {
-            text-align: center;
-            font-size: 9px;
-            color: #64748b;
-            margin-top: 16px;
-            border-top: 1px solid #f1f5f9;
-            padding-top: 8px;
+          .sign-cell {
+            display: table-cell;
+            width: 50%;
+            vertical-align: bottom;
+            font-size: 11px;
+            color: #475569;
+          }
+          .sign-right {
+            text-align: right;
+          }
+          .sign-line {
+            border-top: 1px solid #94a3b8;
+            padding-top: 4px;
+            margin-top: 35px;
+            display: inline-block;
+            min-width: 160px;
           }
         </style>
       </head>
       <body>
-        <div class="receipt-box">
-          <div class="header">
-            <h2 class="title">${shopDetails.name}</h2>
-            <div class="tagline">${shopDetails.tagline}</div>
-            <div class="info">${shopDetails.address}, ${shopDetails.cityState}</div>
-            <div class="info">Phone: ${shopDetails.phone} | GSTIN: ${shopDetails.gstin}</div>
-          </div>
-
-          <table class="meta-table">
+        <div class="invoice-box">
+          <!-- Header -->
+          <table class="header-table">
             <tr>
-              <td><strong>Bill No:</strong> ${order.billNumber}</td>
-              <td style="text-align: right;"><strong>Date:</strong> ${new Date(order.createdAt).toLocaleString('en-IN')}</td>
-            </tr>
-            <tr>
-              <td><strong>Customer:</strong> ${order.customerName || 'Walk-in Customer'}</td>
-              <td style="text-align: right;"><strong>Payment:</strong> ${order.paymentMode}</td>
+              <td style="vertical-align: top;">
+                <h1 class="shop-title">${shopDetails.name}</h1>
+                <div class="shop-tagline">${shopDetails.tagline}</div>
+                <div class="shop-info">
+                  ${shopDetails.address}, ${shopDetails.cityState || ''}<br/>
+                  Phone: ${shopDetails.phone} | WhatsApp: ${shopDetails.whatsapp}<br/>
+                  Email: ${shopDetails.email}<br/>
+                  ${order.isGstBill && shopDetails.gstin ? `<span style="font-family: monospace; font-weight: bold; color: #b91c1c;">GSTIN: ${shopDetails.gstin}</span>` : ''}
+                </div>
+              </td>
+              <td style="vertical-align: top; text-align: right; width: 220px;">
+                <div class="inv-badge-card">
+                  <div class="inv-badge-title">${order.isGstBill ? 'POS TAX INVOICE' : 'ESTIMATE BILL'}</div>
+                  <div class="inv-id">${order.billNumber}</div>
+                  <div style="font-size: 11px; color: #475569; margin-top: 2px;">Date: <b>${new Date(order.createdAt).toLocaleString('en-IN')}</b></div>
+                  <div style="font-size: 11px; color: #475569; font-family: monospace;">Ref: <b>POS Counter</b></div>
+                </div>
+              </td>
             </tr>
           </table>
 
+          <!-- Billed To Customer Card -->
+          <div class="customer-card">
+            <div class="customer-label">Billed To (Customer Details)</div>
+            <div class="grid-2">
+              <div class="col-half">
+                <strong style="font-size: 13px; color: #0f172a;">${order.customerName || 'Walk-in Customer'}</strong><br/>
+                <span style="color: #475569;">Mobile: ${order.customerPhone || 'N/A'}</span>
+              </div>
+              <div class="col-half">
+                <span style="color: #475569;"><b>Dispatch Address:</b> POS Counter Delivery</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
           <table class="items-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Price</th>
-                <th style="text-align: right;">Amount</th>
+                <th style="width: 30px; text-align: center;">#</th>
+                <th style="width: 80px;">SKU</th>
+                ${order.isGstBill ? `<th style="width: 70px;">HSN</th>` : ''}
+                <th>Item Description</th>
+                <th style="width: 50px; text-align: center;">Qty</th>
+                <th style="width: 80px; text-align: right;">Rate (₹)</th>
+                ${order.isGstBill ? `<th style="width: 60px; text-align: right;">GST %</th>
+                <th style="width: 80px; text-align: right;">GST Amt (₹)</th>` : ''}
+                <th style="width: 90px; text-align: right;">Amount (₹)</th>
               </tr>
             </thead>
             <tbody>
@@ -217,36 +338,46 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
             </tbody>
           </table>
 
-          <div class="totals">
-            <div class="totals-row">
-              <span>Subtotal (Excl. GST):</span>
-              <span>${formatINR(displaySubtotal)}</span>
-            </div>
-            <div class="totals-row">
-              <span>GST Total:</span>
-              <span>${formatINR(displayGst)}</span>
-            </div>
-            ${order.discountAmount ? `<div class="totals-row" style="color: #15803d;"><span>Discount:</span><span>-${formatINR(order.discountAmount)}</span></div>` : ''}
-            <div class="grand-total">
-              <span>Grand Total:</span>
-              <span>${formatINR(displayGrandTotal)}</span>
-            </div>
+          <!-- Summary & Terms -->
+          <table class="summary-table">
+            <tr>
+              <td style="vertical-align: top; padding-right: 16px;">
+                ${bankSection}
+                <div style="font-size: 11px; color: #475569;">
+                  <strong style="color: #0f172a;">Terms & Conditions:</strong><br/>
+                  <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${termsText}</div>
+                </div>
+              </td>
+              <td style="vertical-align: top; width: 240px;">
+                <div class="totals-box">
+                  <div class="totals-row">
+                    <span>${order.isGstBill ? 'Subtotal (Base):' : 'Subtotal:'}</span>
+                    <span>${formatINR(displaySubtotal)}</span>
+                  </div>
+                  ${order.isGstBill ? `<div class="totals-row">
+                    <span>Total GST:</span>
+                    <span>${formatINR(displayGst)}</span>
+                  </div>` : ''}
+                  ${discountRow}
+                  <div class="totals-grand">
+                    <span>Grand Total:</span>
+                    <span>${formatINR(displayGrandTotal)}</span>
+                  </div>
+                  ${paymentDetails}
+                </div>
+              </td>
+            </tr>
+          </table>
 
-            <div class="payment-box">
-              <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                <span>Payment Mode:</span>
-                <span style="text-transform: uppercase; color: #b45309;">${order.paymentMode}</span>
-              </div>
-              ${order.paymentMode === 'Cash' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash Tendered:</span><span>${formatINR(order.cashAmount || displayGrandTotal)}</span></div>` : ''}
-              ${order.paymentMode === 'UPI' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>UPI Paid:</span><span>${formatINR(order.upiAmount || displayGrandTotal)}</span></div>${order.upiRefNo ? `<div style="color: #64748b; font-family: monospace;">Ref: ${order.upiRefNo}</div>` : ''}` : ''}
-              ${order.paymentMode === 'Split' ? `<div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>Cash:</span><span>${formatINR(order.cashAmount || 0)}</span></div><div style="display: flex; justify-content: space-between;"><span>UPI:</span><span>${formatINR(order.upiAmount || 0)}</span></div>` : ''}
+          <!-- Signatures -->
+          <div class="footer-sign">
+            <div class="sign-cell">
+              <p style="margin: 0;">Customer Seal & Signature</p>
             </div>
-          </div>
-
-          <div class="footer">
-            <p style="font-weight: bold; margin: 0 0 2px 0;">Thank you for purchasing 100% Green Certified Crackers!</p>
-            <p style="margin: 0;">Wish you a Safe, Joyous & Sparkling Celebration.</p>
-            <p style="margin: 4px 0 0 0; color: #94a3b8; font-family: monospace;">Computer Generated POS Tax Invoice</p>
+            <div class="sign-cell sign-right">
+              <strong style="color: #0f172a;">For ${shopDetails.name}</strong><br/>
+              <div class="sign-line">Authorized Signatory</div>
+            </div>
           </div>
         </div>
       </body>
@@ -254,6 +385,7 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
   `);
   doc.close();
 
+  // Give iframe images and styles a brief moment to render before calling print
   setTimeout(() => {
     try {
       iframe.contentWindow?.focus();
@@ -274,6 +406,7 @@ export const printPOSReceiptPDF = (order: OfflineOrder, shopDetails: ShopDetails
  * Prevents blank pages, background UI clutter, and browser styling glitches.
  */
 export const printInvoicePDF = (invoice: Invoice) => {
+  const isGst = invoice.isGstBill ?? (invoice.gstAmount > 0);
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.right = '0';
@@ -298,11 +431,12 @@ export const printInvoicePDF = (invoice: Invoice) => {
     <tr>
       <td style="text-align: center; font-size: 11px;">${idx + 1}</td>
       <td style="font-family: monospace; font-weight: bold; color: #b91c1c; font-size: 11px;">${item.sku}</td>
+      ${isGst ? `<td style="font-family: monospace; color: #475569; font-size: 11px;">${item.hsnCode || '36041000'}</td>` : ''}
       <td style="font-weight: 600; color: #0f172a; font-size: 11px;">${item.productName}</td>
       <td style="text-align: center; font-weight: bold; font-family: monospace; font-size: 11px;">${item.qty}</td>
       <td style="text-align: right; font-family: monospace; font-size: 11px;">${formatINR(item.sellingPrice)}</td>
-      <td style="text-align: right; font-family: monospace; font-size: 11px;">${item.gstPercent}%</td>
-      <td style="text-align: right; font-family: monospace; color: #475569; font-size: 11px;">${formatINR(item.gstAmount)}</td>
+      ${isGst ? `<td style="text-align: right; font-family: monospace; font-size: 11px;">${item.gstPercent}%</td>
+      <td style="text-align: right; font-family: monospace; color: #475569; font-size: 11px;">${formatINR(item.gstAmount)}</td>` : ''}
       <td style="text-align: right; font-family: monospace; font-weight: bold; color: #b91c1c; font-size: 11px;">${formatINR(item.amount)}</td>
     </tr>
   `
@@ -506,12 +640,12 @@ export const printInvoicePDF = (invoice: Invoice) => {
                   ${invoice.shopDetails.address}<br/>
                   Phone: ${invoice.shopDetails.phone} | WhatsApp: ${invoice.shopDetails.whatsapp}<br/>
                   Email: ${invoice.shopDetails.email}<br/>
-                  <span style="font-family: monospace; font-weight: bold; color: #b91c1c;">GSTIN: ${invoice.shopDetails.gstin}</span>
+                  ${isGst && invoice.shopDetails.gstin ? `<span style="font-family: monospace; font-weight: bold; color: #b91c1c;">GSTIN: ${invoice.shopDetails.gstin}</span>` : ''}
                 </div>
               </td>
               <td style="vertical-align: top; text-align: right; width: 220px;">
                 <div class="inv-badge-card">
-                  <div class="inv-badge-title">GST TAX INVOICE</div>
+                  <div class="inv-badge-title">${isGst ? 'GST TAX INVOICE' : 'ESTIMATE BILL'}</div>
                   <div class="inv-id">${invoice.id}</div>
                   <div style="font-size: 11px; color: #475569; margin-top: 2px;">Date: <b>${formatDate(invoice.date)}</b></div>
                   <div style="font-size: 11px; color: #475569; font-family: monospace;">Ref Enquiry: <b>${invoice.enquiryNo}</b></div>
@@ -540,11 +674,12 @@ export const printInvoicePDF = (invoice: Invoice) => {
               <tr>
                 <th style="width: 30px; text-align: center;">#</th>
                 <th style="width: 80px;">SKU</th>
+                ${isGst ? `<th style="width: 70px;">HSN</th>` : ''}
                 <th>Item Description</th>
                 <th style="width: 50px; text-align: center;">Qty</th>
                 <th style="width: 80px; text-align: right;">Rate (₹)</th>
-                <th style="width: 60px; text-align: right;">GST %</th>
-                <th style="width: 80px; text-align: right;">GST Amt (₹)</th>
+                ${isGst ? `<th style="width: 60px; text-align: right;">GST %</th>
+                <th style="width: 80px; text-align: right;">GST Amt (₹)</th>` : ''}
                 <th style="width: 90px; text-align: right;">Amount (₹)</th>
               </tr>
             </thead>
@@ -566,13 +701,13 @@ export const printInvoicePDF = (invoice: Invoice) => {
               <td style="vertical-align: top; width: 240px;">
                 <div class="totals-box">
                   <div class="totals-row">
-                    <span>Subtotal (Base):</span>
+                    <span>${isGst ? 'Subtotal (Base):' : 'Subtotal:'}</span>
                     <span>${formatINR(invoice.subtotal)}</span>
                   </div>
-                  <div class="totals-row">
-                    <span>Total GST (18%):</span>
+                  ${isGst ? `<div class="totals-row">
+                    <span>Total GST:</span>
                     <span>${formatINR(invoice.gstAmount)}</span>
-                  </div>
+                  </div>` : ''}
                   <div class="totals-grand">
                     <span>Grand Total:</span>
                     <span>${formatINR(invoice.grandTotal)}</span>

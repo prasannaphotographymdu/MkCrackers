@@ -3,12 +3,14 @@ export interface Category {
   name: string;
   description?: string;
   icon?: string;
+  image?: string;
   displayOrder: number;
 }
 
 export interface Product {
   id: string;
   sku: string;
+  hsnCode?: string;
   categoryId: string;
   categoryName?: string;
   name: string;
@@ -17,6 +19,7 @@ export interface Product {
   image: string;
   purchasePrice: number;
   sellingPrice: number;
+  discountPercent?: number;
   gstPercent: number; // e.g. 18
   openingStock: number;
   currentStock: number;
@@ -37,7 +40,7 @@ export interface CustomerDetails {
   address: string;
 }
 
-export type EnquiryStatus = 'Pending' | 'Shipped' | 'Success' | 'Closed';
+export type EnquiryStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'Success' | 'Cancelled';
 
 export interface EnquiryItem {
   id: string;
@@ -45,6 +48,7 @@ export interface EnquiryItem {
   productId: string;
   productName: string;
   sku: string;
+  hsnCode?: string;
   qty: number;
   unitPrice: number;
   amount: number;
@@ -70,6 +74,7 @@ export interface InvoiceItem {
   invoiceId: string;
   productId: string;
   sku: string;
+  hsnCode?: string;
   productName: string;
   qty: number;
   unitPrice: number;
@@ -96,6 +101,26 @@ export interface ShopDetails {
   ifscCode?: string;
   upiId?: string;
   terms?: string;
+  gstEnabled?: boolean;
+}
+
+export interface SequenceSettings {
+  posPrefix: string;
+  posNextNumber: number;
+  posUseYear: boolean;
+  posPadding: number;
+  enquiryPrefix: string;
+  enquiryNextNumber: number;
+  enquiryUseYear: boolean;
+  enquiryPadding: number;
+  gstPrefix: string;
+  gstNextNumber: number;
+  gstUseYear: boolean;
+  gstPadding: number;
+  invoicePrefix?: string;
+  invoiceNextNumber?: number;
+  invoiceUseYear?: boolean;
+  invoicePadding?: number;
 }
 
 export interface Invoice {
@@ -112,6 +137,7 @@ export interface Invoice {
   items: InvoiceItem[];
   shopDetails: ShopDetails;
   createdAt: string;
+  isGstBill?: boolean;
 }
 
 export interface DashboardStats {
@@ -164,6 +190,7 @@ export type PaymentMode = 'Cash' | 'UPI' | 'Split';
 export interface OfflineOrderItem {
   productId: string;
   sku: string;
+  hsnCode?: string;
   productName: string;
   qty: number;
   unitPrice: number;
@@ -188,6 +215,7 @@ export interface OfflineOrder {
   upiRefNo?: string;
   createdAt: string;
   cashierName?: string;
+  isGstBill?: boolean;
 }
 
 export type AdminTab = 
@@ -195,6 +223,7 @@ export type AdminTab =
   | 'pos'
   | 'offline-orders'
   | 'products'
+  | 'categories'
   | 'enquiries'
   | 'inventory'
   | 'reports'

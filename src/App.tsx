@@ -10,15 +10,6 @@ import { OrderTrackerModal } from './components/public/OrderTrackerModal';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
-import {
-  seedFirestoreIfEmpty,
-  subscribeProducts,
-  subscribeCategories,
-  subscribeShopDetails,
-  saveEnquiryToFirestore,
-  saveShopDetailsToFirestore,
-  fetchStaticSKUCatalog
-} from './lib/firebase';
 
 export default function App() {
   // Check if current hostname or path is for admin (e.g., admin.mkcrackers.in or /admin or #admin)
@@ -48,7 +39,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<{ [productId: string]: number }>({});
-  const [shopDetails, setShopDetails] = useState<ShopDetails>(SHOP_INFO);
+  const [shopDetails, setShopDetails] = useState<ShopDetails>(SHOP_INFO);  const [isInitializing, setIsInitializing] = useState(true);
 
   // Modals & UI
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -57,8 +48,8 @@ export default function App() {
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [trackerQuery, setTrackerQuery] = useState('');
 
-  const handleOpenTracker = (query?: string) => {
-    setTrackerQuery(query || '');
+  const handleOpenTracker = (query?: string | any) => {
+    setTrackerQuery(typeof query === 'string' ? query : '');
     setIsTrackerOpen(true);
   };
 
@@ -93,17 +84,24 @@ export default function App() {
     window.addEventListener('popstate', handleLocationChange);
     window.addEventListener('hashchange', handleLocationChange);
 
-    // 2. Seed initial data to Firestore if empty
-    seedFirestoreIfEmpty();
-
-    // 3. Fallback REST API initial fetch
+    // 2. Fallback REST API initial fetch
     fetchShopInfo();
 
-    // 4. Real-time Shop Details Subscription
-    const unsubShop = subscribeShopDetails((liveShop) => {
-      if (liveShop) {
-        setShopDetails(liveShop);
-      }
+    // 4. Real-time Shop Details Subscription - loaded dynamically
+    let unsubShop = () => {};
+    import('./lib/firebase').then(({ subscribeShopDetails }) => {
+      unsubShop = subscribeShopDetails((liveShop) => {
+        if (liveShop) {
+          setShopDetails(liveShop);
+        }
+        setIsInitializing(false);
+      }, (err) => {
+        console.warn('Firebase Shop details subscription failed', err);
+        setIsInitializing(false);
+      });
+    }).catch(err => {
+      console.warn('Firebase lazy load failed:', err);
+      setIsInitializing(false);
     });
 
     return () => {
@@ -113,78 +111,72 @@ export default function App() {
     };
   }, []);
 
-  // Optimized Dynamic Live Subscriptions vs Static Cached Catalog
+    // Always use live subscriptions for both admin and public to ensure real-time accuracy and bypass the 1MB catalog limit
   useEffect(() => {
+    // 1. Fetch from REST API immediately for instant paint and offline/permission fallback
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(prev => prev.length === 0 ? data : prev);
+        }
+      })
+      .catch(err => console.warn('REST Products fetch failed', err));
+
+    fetch('/api/categories')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(prev => prev.length === 0 ? data : prev);
+        }
+      })
+      .catch(err => console.warn('REST Categories fetch failed', err));
+
     let unsubProds = () => {};
     let unsubCats = () => {};
 
-    if (view === 'admin') {
-      console.log('Admin mode: Subscribing to live products & categories');
+    import('./lib/firebase').then(({ subscribeProducts, subscribeCategories }) => {
       unsubProds = subscribeProducts((liveProducts) => {
         if (liveProducts && liveProducts.length > 0) {
           setProducts(liveProducts);
         }
-      });
-
+      }, (err) => console.warn('Firebase Products subscription failed', err));
       unsubCats = subscribeCategories((liveCats) => {
         if (liveCats && liveCats.length > 0) {
           setCategories(liveCats);
         }
-      });
-    } else {
-      console.log('Public mode: Reading optimized static SKU catalog from configs/catalog_sku');
-      fetchStaticSKUCatalog().then((cached) => {
-        if (cached && cached.products && cached.products.length > 0) {
-          setProducts(cached.products);
-          setCategories(cached.categories);
-        } else {
-          // Robust API fallback if not compiled yet
-          fetchShopCatalog();
-        }
-      });
-    }
+      }, (err) => console.warn('Firebase Categories subscription failed', err));
+    }).catch(err => console.warn('Firebase lazy load failed:', err));
 
     return () => {
       unsubProds();
       unsubCats();
     };
-  }, [view]);
+  }, []);
 
-  const fetchShopCatalog = async () => {
-    try {
-      const [catsRes, prodsRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/products?status=active')
-      ]);
-
-      const isCatsJson = catsRes.ok && catsRes.headers.get('content-type')?.includes('application/json');
-      const isProdsJson = prodsRes.ok && prodsRes.headers.get('content-type')?.includes('application/json');
-
-      if (isCatsJson && isProdsJson) {
-        const [catsData, prodsData] = await Promise.all([catsRes.json(), prodsRes.json()]);
-        if (catsData && catsData.length > 0) setCategories(catsData);
-        if (prodsData && prodsData.length > 0) setProducts(prodsData);
-      }
-    } catch (err) {
-      console.warn('Falling back to Firestore snapshot...');
-    }
-  };
-
-  const fetchShopInfo = async () => {
+    const fetchShopInfo = async () => {
     try {
       const res = await fetch('/api/shop-info');
       if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
         const data = await res.json();
-        setShopDetails(data);
+        // Only override if the backend has actual data, to avoid flashing the default if Firestore is slower
+        if (data && data.name !== SHOP_INFO.name) {
+          setShopDetails(data);
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch shop details:', err);
+      console.warn('Failed to fetch shop details:', err);
     }
   };
 
   const handleSaveShopDetails = async (updated: ShopDetails) => {
     // Save to Firestore
-    await saveShopDetailsToFirestore(updated);
+    try {
+      const { saveShopDetailsToFirestore } = await import('./lib/firebase');
+      await saveShopDetailsToFirestore(updated);
+    } catch (e) {
+      console.warn('Firebase lazy load failed:', e);
+    }
     setShopDetails(updated);
 
     // Sync to Express API if running
@@ -225,7 +217,7 @@ export default function App() {
   const cartTotalAmount = Object.entries(cart).reduce((sum: number, [pId, qty]) => {
     const q = Number(qty);
     const prod = products.find((p) => p.id === pId);
-    return sum + (prod ? prod.sellingPrice * q : 0);
+    return sum + (prod ? (prod.discountPercent !== undefined ? (prod.discountPercent > 0 ? prod.sellingPrice * (1 - prod.discountPercent / 100) : prod.sellingPrice) : (prod.sellingPrice * 0.5)) * q : 0);
   }, 0);
 
   // Submit Enquiry Handler
@@ -240,7 +232,7 @@ export default function App() {
         return {
           productId: pId,
           qty: q,
-          unitPrice: prod ? prod.sellingPrice : 0,
+          unitPrice: prod ? (prod.discountPercent !== undefined ? (prod.discountPercent > 0 ? prod.sellingPrice * (1 - prod.discountPercent / 100) : prod.sellingPrice) : (prod.sellingPrice * 0.5)) : 0,
           productName: prod ? prod.name : '',
           sku: prod ? prod.sku : ''
         };
@@ -300,6 +292,7 @@ export default function App() {
 
       // Sync enquiry to Firestore
       try {
+        const { saveEnquiryToFirestore } = await import('./lib/firebase');
         await saveEnquiryToFirestore(data);
       } catch (fsErr) {
         console.warn('Firestore enquiry sync notice:', fsErr);
@@ -333,6 +326,15 @@ export default function App() {
     showToast('info', 'Logged Out', 'Returned to login page.');
   };
 
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-4" />
+        <p className="text-slate-400 font-medium">Loading store details...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 font-sans antialiased text-slate-100 selection:bg-amber-500 selection:text-slate-950">
       {/* Toast Overlay */}
@@ -343,7 +345,7 @@ export default function App() {
         currentView={view}
         onChangeView={(targetView) => {
           setView(targetView);
-          if (targetView === 'shop') fetchShopCatalog();
+          
         }}
         isAdminLoggedIn={isAdminLoggedIn}
         onAdminLogout={handleAdminLogout}
@@ -371,7 +373,6 @@ export default function App() {
           products={products}
           onGoToStore={() => {
             setView('shop');
-            fetchShopCatalog();
           }}
           onOpenTracker={handleOpenTracker}
         />

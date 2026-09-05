@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '../common/Pagination';
+import { ImageUploadCompressor } from '../common/ImageUploadCompressor';
 import {
   Plus,
   Search,
@@ -19,7 +20,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Product, Category } from '../../types';
-import { formatINR, downloadCSV } from '../../lib/utils';
+import { formatINR, downloadCSV, cleanImageUrl } from '../../lib/utils';
 
 interface ProductManagementProps {
   products: Product[];
@@ -66,13 +67,15 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   // Form State
   const [formData, setFormData] = useState<Partial<Product>>({
     sku: '',
+    hsnCode: '',
     categoryId: categories[0]?.id || '',
     name: '',
     description: '',
     itemsPerPack: '1 Box',
-    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80',
+    image: '',
     purchasePrice: 0,
     sellingPrice: 0,
+    discountPercent: 50,
     gstPercent: 18,
     openingStock: 100,
     currentStock: 100,
@@ -91,9 +94,10 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
       name: '',
       description: '',
       itemsPerPack: '1 Box (10 Pcs)',
-      image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80',
+      image: '',
       purchasePrice: 50,
       sellingPrice: 100,
+      discountPercent: 50,
       gstPercent: 18,
       openingStock: 100,
       currentStock: 100,
@@ -107,7 +111,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   // Open Modal for Edit
   const handleOpenEditModal = (product: Product) => {
     setEditingProduct(product);
-    setFormData({ ...product });
+    setFormData({ hsnCode: '36041000', ...product });
     setFormError('');
     setIsModalOpen(true);
   };
@@ -144,12 +148,13 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
       return;
     }
 
+    const cleanedImage = cleanImageUrl(formData.image || '');
     try {
       if (editingProduct) {
-        await onUpdateProduct(editingProduct.id, { ...formData, sku: cleanSKU });
+        await onUpdateProduct(editingProduct.id, { ...formData, image: cleanedImage, sku: cleanSKU });
         onShowToast('success', 'Product Updated', `${formData.name} updated successfully.`);
       } else {
-        await onCreateProduct({ ...formData, sku: cleanSKU });
+        await onCreateProduct({ ...formData, image: cleanedImage, sku: cleanSKU });
         onShowToast('success', 'Product Created', `${formData.name} added to catalog.`);
       }
       setIsModalOpen(false);
@@ -212,6 +217,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
         itemsPerPack: '1 Box (10 Pcs)',
         purchasePrice: 40,
         sellingPrice: 85,
+        discountPercent: 50,
         gstPercent: 18,
         currentStock: 200,
         lowStockLimit: 20,
@@ -225,6 +231,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
         itemsPerPack: '1 Box (5 Pcs)',
         purchasePrice: 90,
         sellingPrice: 180,
+        discountPercent: 50,
         gstPercent: 18,
         currentStock: 150,
         lowStockLimit: 15,
@@ -418,10 +425,6 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                         src={p.image}
                         alt={p.name}
                         className="w-8 h-8 object-cover rounded bg-slate-100 border border-slate-200"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80';
-                        }}
                       />
                     </td>
                     <td className="py-1.5 px-3 font-mono font-bold text-red-700">{p.sku}</td>
@@ -430,7 +433,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                       <div className="text-[10px] text-slate-500 line-clamp-1">{p.description}</div>
                     </td>
                     <td className="py-1.5 px-3 text-slate-700 font-medium">
-                      {p.categoryName || 'General'}
+                      {categories.find((c) => c.id === p.categoryId)?.name || p.categoryName || 'General'}
                     </td>
                     <td className="py-1.5 px-3 text-slate-600">{p.itemsPerPack}</td>
                     <td className="py-1.5 px-3 text-right font-mono font-bold text-red-700">
@@ -503,7 +506,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
       {/* Product Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 animate-fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6 animate-fade-in overflow-y-auto">
           <div className="bg-white border border-slate-300 rounded-md max-w-xl w-full my-6 p-4 shadow-2xl relative text-slate-900">
             <button
               onClick={() => setIsModalOpen(false)}
@@ -524,7 +527,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
             )}
 
             <form onSubmit={handleSaveProduct} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* SKU */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -537,6 +540,20 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                     value={formData.sku || ''}
                     onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
                     className="w-full px-2.5 py-1.5 rounded bg-slate-50 border border-slate-300 text-red-700 font-mono font-bold text-xs focus:bg-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+
+                {/* HSN Code */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    HSN Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 36041000"
+                    value={formData.hsnCode || ''}
+                    onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                    className="w-full px-2.5 py-1.5 rounded bg-slate-50 border border-slate-300 text-slate-900 font-mono text-xs focus:bg-white focus:outline-none focus:border-red-500"
                   />
                 </div>
 
@@ -603,17 +620,13 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Image URL / File Upload / Camera Capture */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Image URL
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://..."
+                <ImageUploadCompressor
                   value={formData.image || ''}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="w-full px-2.5 py-1.5 rounded bg-slate-50 border border-slate-300 text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-red-500"
+                  onChange={(val) => setFormData({ ...formData, image: val })}
+                  label="Product Image (Upload / Camera / URL)"
+                  maxKb={50}
                 />
               </div>
 
@@ -643,6 +656,20 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                     value={formData.sellingPrice || 0}
                     onChange={(e) => setFormData({ ...formData, sellingPrice: Number(e.target.value) })}
                     className="w-full px-2.5 py-1.5 rounded bg-slate-50 border border-slate-300 text-red-700 font-mono font-bold text-xs focus:bg-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Discount (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={formData.discountPercent !== undefined ? formData.discountPercent : 50}
+                    onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
+                    className="w-full px-2.5 py-1.5 rounded bg-slate-50 border border-slate-300 text-emerald-700 font-mono font-bold text-xs focus:bg-white focus:outline-none focus:border-red-500"
                   />
                 </div>
 
@@ -726,7 +753,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
       {/* Bulk Import CSV Modal */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 animate-fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6 animate-fade-in overflow-y-auto">
           <div className="bg-white border border-slate-300 rounded-md max-w-xl w-full my-6 p-4 shadow-2xl relative text-slate-900">
             <button
               onClick={() => setIsImportModalOpen(false)}

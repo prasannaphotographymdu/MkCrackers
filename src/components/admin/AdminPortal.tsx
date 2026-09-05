@@ -32,6 +32,7 @@ import { EnquiryManagement } from './EnquiryManagement';
 import { InventoryManagement } from './InventoryManagement';
 import { ReportsView } from './ReportsView';
 import { CompanyProfileSettings } from './CompanyProfileSettings';
+import { CategoryManagement } from './CategoryManagement';
 import { POSBilling } from './POSBilling';
 import { OfflineOrdersView } from './OfflineOrdersView';
 import {
@@ -79,8 +80,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [monthlySales, setMonthlySales] = useState<MonthlySalesData[]>([]);
   const [categorySales, setCategorySales] = useState<CategorySalesData[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [notifications, setNotifications] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<any[]>([]);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   const setTab = (tab: AdminTab) => {
@@ -93,14 +93,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   }, [externalTab]);
 
   useEffect(() => {
-    loadAllAdminData();
-
+    
     // Firestore Real-time subscriptions for Admin Console
-    const unsubProds = subscribeProducts((liveProds) => setProducts(liveProds));
-    const unsubCats = subscribeCategories((liveCats) => setCategories(liveCats));
-    const unsubEnqs = subscribeEnquiries((liveEnqs) => setEnquiries(liveEnqs));
-    const unsubInvs = subscribeInvoices((liveInvs) => setInvoices(liveInvs));
-    const unsubOffline = subscribeOfflineOrders((liveOrders) => setOfflineOrders(liveOrders));
+    const unsubProds = subscribeProducts((liveProds) => setProducts(liveProds), (err) => console.warn(err));
+    const unsubCats = subscribeCategories((liveCats) => setCategories(liveCats), (err) => console.warn(err));
+    const unsubEnqs = subscribeEnquiries((liveEnqs) => setEnquiries(liveEnqs), (err) => console.warn(err));
+    const unsubInvs = subscribeInvoices((liveInvs) => setInvoices(liveInvs), (err) => console.warn(err));
+    const unsubOffline = subscribeOfflineOrders((liveOrders) => setOfflineOrders(liveOrders), (err) => console.warn(err));
     const unsubNotifs = subscribeStockOutNotifications((liveNotifs) => {
       setNotifications(liveNotifs.filter((n) => n.status === 'unread'));
     });
@@ -131,50 +130,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
   };
 
-  const loadAllAdminData = async () => {
-    setIsLoading(true);
-    try {
-      const [catsRes, prodsRes, enqRes, invRes, offlineRes, statsRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/products?status=all'),
-        fetch('/api/enquiries'),
-        fetch('/api/invoices'),
-        fetch('/api/offline-orders'),
-        fetch('/api/stats')
-      ]);
-
-      const isJson = (r: Response) => r.ok && r.headers.get('content-type')?.includes('application/json');
-
-      if (isJson(catsRes) && isJson(prodsRes)) {
-        const [cats, prods, enqs, invs, offOrders, statsData] = await Promise.all([
-          catsRes.json(),
-          prodsRes.json(),
-          isJson(enqRes) ? enqRes.json() : Promise.resolve([]),
-          isJson(invRes) ? invRes.json() : Promise.resolve([]),
-          isJson(offlineRes) ? offlineRes.json() : Promise.resolve([]),
-          isJson(statsRes) ? statsRes.json() : Promise.resolve(null)
-        ]);
-
-        if (Array.isArray(cats) && cats.length) setCategories(cats);
-        if (Array.isArray(prods) && prods.length) setProducts(prods);
-        if (Array.isArray(enqs)) setEnquiries(enqs);
-        if (Array.isArray(invs)) setInvoices(invs);
-        if (Array.isArray(offOrders)) setOfflineOrders(offOrders);
-
-        if (statsData) {
-          setStats(statsData.stats);
-          setDailySales(statsData.dailySales);
-          setMonthlySales(statsData.monthlySales);
-          setCategorySales(statsData.categorySales);
-        }
-      }
-    } catch (err) {
-      console.warn('Falling back to Firestore snapshot data...');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  
   // Compute live fallbacks so Dashboard is NEVER empty even on static hosting or offline
   const computedStats: DashboardStats = useMemo(() => {
     if (stats) return stats;
@@ -194,13 +150,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const totalSales = totalInvoiceSales + totalPOSSales;
 
     const pendingOrders = (enquiries || []).filter((e) => e.status === 'Pending').length;
-    const closedOrders = (enquiries || []).filter((e) => e.status === 'Closed').length;
+    const closedOrders = (enquiries || []).filter((e) => e.status === 'Cancelled').length;
     const totalSuccessfulOrders = (invoices || []).length + (offlineOrders || []).length;
     const totalEnquiries = (enquiries || []).length;
 
-    const lowStockProducts = (products || []).filter((p) => p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length;
-    const outOfStockProducts = (products || []).filter((p) => p.stock === 0).length;
-    const inventoryValue = (products || []).reduce((s, p) => s + p.stock * p.sellingPrice, 0);
+    const lowStockProducts = (products || []).filter((p) => (p.currentStock || 0) > 0 && (p.currentStock || 0) <= (p.lowStockLimit || 5)).length;
+    const outOfStockProducts = (products || []).filter((p) => (p.currentStock || 0) === 0).length;
+    const inventoryValue = (products || []).reduce((s, p) => s + (p.currentStock || 0) * (p.sellingPrice || 0), 0);
 
     return {
       todaySales,
@@ -478,7 +434,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         body: JSON.stringify({ items })
       });
       if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
-        return await res.json();
+        const data = await res.json();
+        return data;
       }
     } catch (err) {}
 
@@ -510,14 +467,34 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const existing = products.find((p) => p.id === productId);
     if (existing) {
       const updated = { ...existing, currentStock: newStock, updatedAt: new Date().toISOString() };
-      await saveProductToFirestore(updated);
+      
+      // Update local React state instantly for immediate feedback
+      setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
+      
+      try {
+        const res = await fetch(`/api/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentStock: newStock })
+        });
+        if (res.ok) {
+          onShowToast('success', 'Stock Adjusted', `Successfully adjusted stock for ${existing.sku} to ${newStock}.`);
+        } else {
+          throw new Error('Failed to update stock on backend');
+        }
+      } catch (err) {
+        console.warn('Backend stock update failed, falling back to direct Firestore write:', err);
+        await saveProductToFirestore(updated);
+      }
+      
+      // Refresh all admin data (such as statistics and charts) to guarantee synchronization
     }
   };
 
   // Enquiry Status Update
   const handleUpdateEnquiryStatus = async (
     id: string,
-    status: 'Pending' | 'Success' | 'Closed',
+    status: Enquiry['status'],
     notes?: string
   ) => {
     try {
@@ -584,21 +561,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     return data;
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center text-slate-900 font-sans">
-        <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-xs font-semibold text-slate-600">Loading B2B Admin Console...</p>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans">
       {/* Admin Sub Navigation Bar */}
       <div className="bg-slate-900 text-slate-200 border-b border-slate-800 sticky top-12 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 flex items-center justify-between overflow-x-auto">
-          <div className="flex items-center gap-1 py-1.5 text-xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 flex items-center justify-between overflow-x-auto gap-4 hide-scrollbar">
+          <div className="flex items-center gap-1 py-1.5 text-xs shrink-0 min-w-max">
             <button
               onClick={() => setTab('dashboard')}
               className={`px-3 py-1 rounded text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
@@ -641,6 +611,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               }`}
             >
               <Package className="w-3.5 h-3.5" /> Products ({products.length})
+            </button>
+            <button
+              onClick={() => setTab('categories')}
+              className={`px-3 py-1 rounded text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                currentTab === 'categories'
+                  ? 'bg-red-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <Boxes className="w-3.5 h-3.5" /> Categories
             </button>
 
             <button
@@ -702,7 +682,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Update SKU Catalog
             </button>
             <button
-              onClick={loadAllAdminData}
+              onClick={() => {}}
               title="Refresh Data"
               className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 transition-colors"
             >
@@ -756,6 +736,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             products={products}
             categories={categories}
             shopDetails={shopDetails}
+            offlineOrders={offlineOrders}
+            invoices={invoices}
             onCreateOfflineOrder={handleCreateOfflineOrder}
             onShowToast={onShowToast}
           />
@@ -779,6 +761,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             onBulkImportCSV={handleBulkImportCSV}
             onShowToast={onShowToast}
           />
+        )}
+        {currentTab === 'categories' && (
+          <CategoryManagement categories={categories} />
         )}
 
         {currentTab === 'enquiries' && (

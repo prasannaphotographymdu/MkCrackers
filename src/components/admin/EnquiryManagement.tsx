@@ -93,9 +93,9 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
       onShowToast(
         newStatus === 'Success'
           ? 'success'
-          : newStatus === 'Shipped'
+          : newStatus === 'Shipped' || newStatus === 'Confirmed'
           ? 'info'
-          : newStatus === 'Closed'
+          : newStatus === 'Cancelled'
           ? 'error'
           : 'info',
         'Enquiry Status Updated',
@@ -157,9 +157,10 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
           {[
             { key: 'all', label: 'All', count: enquiries.length },
             { key: 'Pending', label: '1. Pending', count: enquiries.filter((e) => e.status === 'Pending').length },
-            { key: 'Shipped', label: '2. Shipped', count: enquiries.filter((e) => e.status === 'Shipped').length },
-            { key: 'Success', label: '3. Success', count: enquiries.filter((e) => e.status === 'Success').length },
-            { key: 'Closed', label: '4. Closed', count: enquiries.filter((e) => e.status === 'Closed').length }
+            { key: 'Confirmed', label: '2. Confirmed', count: enquiries.filter((e) => e.status === 'Confirmed').length },
+            { key: 'Shipped', label: '3. Shipped', count: enquiries.filter((e) => e.status === 'Shipped').length },
+            { key: 'Success', label: '4. Success', count: enquiries.filter((e) => e.status === 'Success').length },
+            { key: 'Cancelled', label: '5. Cancelled', count: enquiries.filter((e) => e.status === 'Cancelled').length }
           ].map((tab) => (
             <button
               key={tab.key}
@@ -265,6 +266,8 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                         className={`px-2 py-0.5 rounded text-[11px] font-bold border focus:outline-none cursor-pointer ${
                           e.status === 'Pending'
                             ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : e.status === 'Confirmed'
+                            ? 'bg-indigo-50 text-indigo-800 border-indigo-300'
                             : e.status === 'Shipped'
                             ? 'bg-blue-50 text-blue-800 border-blue-300 font-black'
                             : e.status === 'Success'
@@ -273,9 +276,10 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                         }`}
                       >
                         <option value="Pending">1. Pending</option>
-                        <option value="Shipped">2. Shipped / Dispatched</option>
-                        <option value="Success">3. Success (Confirmed)</option>
-                        <option value="Closed">4. Closed (Rejected)</option>
+                        <option value="Confirmed">2. Confirmed</option>
+                        <option value="Shipped">3. Shipped</option>
+                        <option value="Success">4. Success</option>
+                        <option value="Cancelled">5. Cancelled</option>
                       </select>
                     </div>
                   </td>
@@ -371,6 +375,25 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                 </div>
               </div>
 
+              {/* Dispatch Tracking Info Box */}
+              {(activeEnquiry.notes || activeEnquiry.status === 'Shipped' || activeEnquiry.status === 'Success') && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs animate-fade-in space-y-1">
+                  <div className="flex items-center gap-1.5 text-blue-800 font-extrabold uppercase tracking-wider text-[10px]">
+                    <Truck className="w-4 h-4 text-blue-600" />
+                    <span>Shipping & Dispatch Tracking Information</span>
+                  </div>
+                  {activeEnquiry.notes ? (
+                    <div className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed font-mono text-[11px] bg-white p-2 border border-blue-100 rounded-lg">
+                      {activeEnquiry.notes}
+                    </div>
+                  ) : (
+                    <span className="italic text-slate-500 block pl-5">
+                      Order marked as Shipped, but no tracking details were entered yet.
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Itemized Table */}
               <div className="border border-slate-200 rounded-xl overflow-x-auto">
                 <table className="w-full min-w-[480px] text-left text-xs text-slate-800">
@@ -428,12 +451,35 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                   <>
                     <button
                       onClick={() => {
-                        handleStatusChange(activeEnquiry.id, 'Closed');
+                        handleStatusChange(activeEnquiry.id, 'Cancelled');
                         setActiveEnquiry(null);
                       }}
                       className="px-3.5 py-2.5 rounded-xl bg-red-900/60 border border-red-700 text-red-200 font-bold text-xs hover:bg-red-800 transition-colors min-h-[44px] cursor-pointer"
                     >
-                      Reject
+                      Cancel Order
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleStatusChange(activeEnquiry.id, 'Confirmed');
+                        setActiveEnquiry(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer"
+                    >
+                      Confirm Order
+                    </button>
+                  </>
+                )}
+
+                {activeEnquiry.status === 'Confirmed' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        handleStatusChange(activeEnquiry.id, 'Cancelled');
+                        setActiveEnquiry(null);
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-red-900/60 border border-red-700 text-red-200 font-bold text-xs hover:bg-red-800 transition-colors min-h-[44px] cursor-pointer"
+                    >
+                      Cancel Order
                     </button>
                     <button
                       onClick={() => {
@@ -443,16 +489,7 @@ export const EnquiryManagement: React.FC<EnquiryManagementProps> = ({
                       }}
                       className="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer flex items-center gap-1.5"
                     >
-                      <Truck className="w-4 h-4" /> Mark Shipped
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleStatusChange(activeEnquiry.id, 'Success');
-                        setActiveEnquiry(null);
-                      }}
-                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-colors min-h-[44px] cursor-pointer"
-                    >
-                      Confirm Order
+                      <Truck className="w-4 h-4" /> Ship Order
                     </button>
                   </>
                 )}

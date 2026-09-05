@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
   collection,
   doc,
   getDocs,
@@ -11,7 +12,10 @@ import {
   onSnapshot,
   query,
   orderBy,
-  writeBatch
+  writeBatch,
+  enableIndexedDbPersistence,
+  runTransaction,
+  limit
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Product, Category, Enquiry, Invoice, ShopDetails, OfflineOrder } from '../types';
@@ -23,11 +27,50 @@ import {
   SHOP_INFO
 } from '../data/seed';
 
+// Resolve dynamic config if environment variables are provided
+function cleanEnv(val: string | undefined): string | undefined {
+  if (!val) return undefined;
+  let clean = val.trim();
+  if (clean.endsWith(',')) {
+    clean = clean.slice(0, -1).trim();
+  }
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean || undefined;
+}
+
+const metaEnv = (import.meta as any).env || {};
+const dynamicConfig = {
+  apiKey: cleanEnv(metaEnv.VITE_FIREBASE_API_KEY) || firebaseConfig.apiKey,
+  authDomain: cleanEnv(metaEnv.VITE_FIREBASE_AUTH_DOMAIN) || firebaseConfig.authDomain,
+  projectId: cleanEnv(metaEnv.VITE_FIREBASE_PROJECT_ID) || firebaseConfig.projectId,
+  storageBucket: cleanEnv(metaEnv.VITE_FIREBASE_STORAGE_BUCKET) || firebaseConfig.storageBucket,
+  messagingSenderId: cleanEnv(metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID) || firebaseConfig.messagingSenderId,
+  appId: cleanEnv(metaEnv.VITE_FIREBASE_APP_ID) || firebaseConfig.appId,
+};
+
+const databaseId = cleanEnv(metaEnv.VITE_FIREBASE_DATABASE_ID) || firebaseConfig.firestoreDatabaseId;
+
 // Initialize Firebase App
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = !getApps().length ? initializeApp(dynamicConfig) : getApp();
 
 // Initialize Firestore with custom database ID from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+export const auth = getAuth(app);
+export const db = initializeFirestore(app, { ignoreUndefinedProperties: true }, databaseId || undefined);
+
+// Enable offline persistence
+try {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('The current browser does not support all of the features required to enable persistence');
+    }
+  });
+} catch (e) {
+  console.warn('Offline persistence setup failed:', e);
+}
 
 // Collection References
 export const PRODUCTS_COL = 'products';
@@ -118,17 +161,19 @@ export function subscribeProducts(
       callback(prods);
     },
     (err) => {
-      console.warn('Firestore products read restricted, using REST API fallback:', err.message);
+      console.warn('Firestore read error:', err.message);
+      try {
+        if (err.message?.includes('Missing or insufficient permissions')) {
+          handleFirestoreError(err, OperationType.GET, PRODUCTS_COL);
+        }
+      } catch (e) {
+        if (onError) onError(e);
+      }
       if (onError) onError(err);
-      fetch('/api/products?status=all')
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) callback(data);
-        })
-        .catch(() => {});
     }
   );
 }
+
 
 export function subscribeCategories(
   callback: (categories: Category[]) => void,
@@ -138,21 +183,19 @@ export function subscribeCategories(
     collection(db, CATEGORIES_COL),
     (snapshot) => {
       const cats: Category[] = [];
-      snapshot.forEach((doc) => {
-        cats.push({ id: doc.id, ...doc.data() } as Category);
-      });
-      cats.sort((a, b) => a.displayOrder - b.displayOrder);
+      snapshot.forEach((doc) => cats.push({ id: doc.id, ...doc.data() } as Category));
       callback(cats);
     },
-    (err) => {
-      console.warn('Firestore categories read restricted, using REST API fallback:', err.message);
-      if (onError) onError(err);
-      fetch('/api/categories')
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) callback(data);
-        })
-        .catch(() => {});
+    (err) => { 
+      console.warn('Firestore read error:', err.message); 
+      try {
+        if (err.message?.includes('Missing or insufficient permissions')) {
+          handleFirestoreError(err, OperationType.GET, CATEGORIES_COL);
+        }
+      } catch (e) {
+        if (onError) onError(e);
+      }
+      if(onError) onError(err); 
     }
   );
 }
@@ -162,24 +205,22 @@ export function subscribeEnquiries(
   onError?: (err: any) => void
 ) {
   return onSnapshot(
-    collection(db, ENQUIRIES_COL),
+    query(collection(db, ENQUIRIES_COL), orderBy('createdAt', 'desc'), limit(500)),
     (snapshot) => {
       const enqs: Enquiry[] = [];
-      snapshot.forEach((doc) => {
-        enqs.push({ id: doc.id, ...doc.data() } as Enquiry);
-      });
-      enqs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      snapshot.forEach((doc) => enqs.push({ id: doc.id, ...doc.data() } as Enquiry));
       callback(enqs);
     },
-    (err) => {
-      console.warn('Firestore enquiries read restricted, using REST API fallback:', err.message);
-      if (onError) onError(err);
-      fetch('/api/enquiries')
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) callback(data);
-        })
-        .catch(() => {});
+    (err) => { 
+      console.warn('Firestore read error:', err.message); 
+      try {
+        if (err.message?.includes('Missing or insufficient permissions')) {
+          handleFirestoreError(err, OperationType.GET, ENQUIRIES_COL);
+        }
+      } catch (e) {
+        if (onError) onError(e);
+      }
+      if(onError) onError(err); 
     }
   );
 }
@@ -189,88 +230,115 @@ export function subscribeInvoices(
   onError?: (err: any) => void
 ) {
   return onSnapshot(
-    collection(db, INVOICES_COL),
+    query(collection(db, INVOICES_COL), orderBy('createdAt', 'desc'), limit(500)),
     (snapshot) => {
       const invs: Invoice[] = [];
-      snapshot.forEach((doc) => {
-        invs.push({ id: doc.id, ...doc.data() } as Invoice);
-      });
-      invs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      snapshot.forEach((doc) => invs.push({ id: doc.id, ...doc.data() } as Invoice));
       callback(invs);
     },
-    (err) => {
-      console.warn('Firestore invoices read restricted, using REST API fallback:', err.message);
-      if (onError) onError(err);
-      fetch('/api/invoices')
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) callback(data);
-        })
-        .catch(() => {});
+    (err) => { 
+      console.warn('Firestore read error:', err.message); 
+      try {
+        if (err.message?.includes('Missing or insufficient permissions')) {
+          handleFirestoreError(err, OperationType.GET, INVOICES_COL);
+        }
+      } catch (e) {
+        if (onError) onError(e);
+      }
+      if(onError) onError(err); 
     }
   );
 }
 
-export function subscribeShopDetails(
-  callback: (shop: ShopDetails) => void,
-  onError?: (err: any) => void
-) {
-  return onSnapshot(
-    doc(db, SHOP_COL, 'current'),
-    (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.data() as ShopDetails);
-      }
-    },
-    (err) => {
-      console.warn('Firestore shopDetails read restricted, using REST API fallback:', err.message);
-      if (onError) onError(err);
-      fetch('/api/shop-info')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data) callback(data);
-        })
-        .catch(() => {});
-    }
-  );
-}
+
 
 export function subscribeOfflineOrders(
   callback: (orders: OfflineOrder[]) => void,
   onError?: (err: any) => void
 ) {
   return onSnapshot(
-    collection(db, OFFLINE_ORDERS_COL),
+    query(collection(db, OFFLINE_ORDERS_COL), orderBy('createdAt', 'desc'), limit(500)),
     (snapshot) => {
       const list: OfflineOrder[] = [];
       snapshot.forEach((doc) => {
         list.push({ id: doc.id, ...doc.data() } as OfflineOrder);
       });
-      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(list);
     },
     (err) => {
-      console.warn('Firestore offline orders read restricted, using REST API fallback:', err.message);
+      console.warn('Firestore read error:', err.message);
+      try {
+        if (err.message?.includes('Missing or insufficient permissions')) {
+          handleFirestoreError(err, OperationType.GET, OFFLINE_ORDERS_COL);
+        }
+      } catch (e) {
+        if (onError) onError(e);
+      }
       if (onError) onError(err);
-      fetch('/api/offline-orders')
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) callback(data);
-        })
-        .catch(() => {});
     }
   );
 }
 
-// --- Firestore CRUD Mutations ---
-
+export function subscribeShopDetails(
+  callback: (shopDetails: ShopDetails | null) => void,
+  onError?: (err: any) => void
+) {
+  return onSnapshot(
+    doc(db, SHOP_COL, 'current'),
+    (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data() as ShopDetails);
+      } else {
+        callback(null);
+      }
+    },
+    (err) => {
+      console.warn('Firestore subscribeShopDetails error:', err.message);
+      try {
+        if (err.message?.includes('Missing or insufficient permissions')) {
+          handleFirestoreError(err, OperationType.GET, SHOP_COL);
+        }
+      } catch (e) {
+        if (onError) onError(e);
+      }
+      if (onError) onError(err);
+    }
+  );
+}
 export async function saveProductToFirestore(product: Product) {
   try {
     const ref = doc(db, PRODUCTS_COL, product.id);
+    const prodSnap = await getDoc(ref);
+    const isNew = !prodSnap.exists();
+    const prevStock = isNew ? 0 : (prodSnap.data() as Product).currentStock || 0;
+    const prevStatus = isNew ? null : (prodSnap.data() as Product).status;
+    const newStock = product.currentStock || 0;
+    const newStatus = product.status;
+
     await setDoc(ref, product, { merge: true });
 
-    if (product.currentStock === 0) {
+    let shouldRegenerate = false;
+    
+    if (newStock === 0 && prevStock > 0) {
+      shouldRegenerate = true;
       await createStockOutNotification(product);
+    } else if (prevStock === 0 && newStock > 0) {
+      shouldRegenerate = true;
+    }
+
+    if (isNew && (newStatus === 'active' || newStatus === 'inactive')) {
+      shouldRegenerate = true;
+    } else if (prevStatus && prevStatus !== newStatus && (newStatus === 'active' || newStatus === 'inactive')) {
+      shouldRegenerate = true;
+    }
+
+    // Always regenerate if the product is active or was active to ensure image, price, name updates sync instantly
+    if (newStatus === 'active' || prevStatus === 'active') {
+      shouldRegenerate = true;
+    }
+
+    if (shouldRegenerate) {
+      await generateStaticSKUCatalog();
     }
   } catch (err: any) {
     console.warn('Firestore product write notice:', err?.message || err);
@@ -281,6 +349,7 @@ export async function deleteProductFromFirestore(productId: string) {
   try {
     const ref = doc(db, PRODUCTS_COL, productId);
     await deleteDoc(ref);
+    await generateStaticSKUCatalog();
   } catch (err: any) {
     console.warn('Firestore product delete notice:', err?.message || err);
   }
@@ -290,6 +359,7 @@ export async function saveCategoryToFirestore(category: Category) {
   try {
     const ref = doc(db, CATEGORIES_COL, category.id);
     await setDoc(ref, category, { merge: true });
+    await generateStaticSKUCatalog();
   } catch (err: any) {
     console.warn('Firestore category write notice:', err?.message || err);
   }
@@ -317,39 +387,63 @@ export async function updateEnquiryStatusInFirestore(enquiryId: string, status: 
 
 export async function saveInvoiceToFirestore(invoice: Invoice) {
   try {
-    const batch = writeBatch(db);
-    // 1. Save invoice
-    const invRef = doc(db, INVOICES_COL, invoice.id);
-    batch.set(invRef, invoice, { merge: true });
-
-    // 2. Mark enquiry as invoiced
-    const enqRef = doc(db, ENQUIRIES_COL, invoice.enquiryId);
-    batch.update(enqRef, {
-      invoiceGenerated: true,
-      invoiceId: invoice.id,
-      status: 'Success'
+    let shouldRegenerate = false;
+    await runTransaction(db, async (transaction) => {
+      shouldRegenerate = false;
+      const stockOutProducts: any[] = [];
+      const prodRefs = invoice.items.map(item => doc(db, PRODUCTS_COL, item.productId));
+      const prodSnaps = await Promise.all(prodRefs.map(ref => transaction.get(ref)));
+      
+      const invRef = doc(db, INVOICES_COL, invoice.id);
+      transaction.set(invRef, invoice, { merge: true });
+      
+      const enqRef = doc(db, ENQUIRIES_COL, invoice.enquiryId);
+      transaction.update(enqRef, {
+        invoiceGenerated: true,
+        invoiceId: invoice.id,
+        status: 'Success'
+      });
+      
+      invoice.items.forEach((item, index) => {
+        const prodSnap = prodSnaps[index];
+        if (prodSnap.exists()) {
+          const prod = prodSnap.data() as Product;
+          const current = prod.currentStock || 0;
+          const newStock = Math.max(0, current - item.qty);
+          transaction.update(prodRefs[index], {
+            currentStock: newStock,
+            updatedAt: new Date().toISOString()
+          });
+          if (newStock === 0 && current > 0) {
+            shouldRegenerate = true;
+            stockOutProducts.push({ ...prod, id: item.productId });
+          }
+        }
+      });
+      
+      stockOutProducts.forEach(prod => {
+        const notifId = `NOTIF-STK-${prod.id}-${Date.now()}`;
+        const notifRef = doc(db, NOTIFICATIONS_COL, notifId);
+        transaction.set(notifRef, {
+          id: notifId,
+          type: 'stock-out',
+          productId: prod.id,
+          productName: prod.name,
+          sku: prod.sku,
+          createdAt: new Date().toISOString(),
+          status: 'unread'
+        });
+      });
+      
+      if (shouldRegenerate) {
+        const catalogRef = doc(db, CONFIGS_COL, 'catalog_sku');
+        transaction.set(catalogRef, { isStale: true }, { merge: true });
+      }
     });
 
-    // 3. Deduct stock for each item & check for stock-out
-    for (const item of invoice.items) {
-      const prodRef = doc(db, PRODUCTS_COL, item.productId);
-      const prodSnap = await getDoc(prodRef);
-      if (prodSnap.exists()) {
-        const prod = prodSnap.data() as Product;
-        const current = prod.currentStock || 0;
-        const newStock = Math.max(0, current - item.qty);
-        batch.update(prodRef, {
-          currentStock: newStock,
-          updatedAt: new Date().toISOString()
-        });
-
-        if (newStock === 0 && current > 0) {
-          await createStockOutNotification({ ...prod, id: item.productId });
-        }
-      }
+    if (shouldRegenerate) {
+      await generateStaticSKUCatalog();
     }
-
-    await batch.commit();
   } catch (err: any) {
     console.warn('Firestore invoice write notice:', err?.message || err);
   }
@@ -357,33 +451,87 @@ export async function saveInvoiceToFirestore(invoice: Invoice) {
 
 export async function saveOfflineOrderToFirestore(order: OfflineOrder) {
   try {
-    const batch = writeBatch(db);
-    // 1. Save offline order
-    const orderRef = doc(db, OFFLINE_ORDERS_COL, order.id);
-    batch.set(orderRef, order, { merge: true });
-
-    // 2. Deduct inventory in Firestore & check for stock-out
-    for (const item of order.items) {
-      const prodRef = doc(db, PRODUCTS_COL, item.productId);
-      const prodSnap = await getDoc(prodRef);
-      if (prodSnap.exists()) {
-        const prod = prodSnap.data() as Product;
-        const current = prod.currentStock || 0;
-        const newStock = Math.max(0, current - item.qty);
-        batch.update(prodRef, {
-          currentStock: newStock,
-          updatedAt: new Date().toISOString()
-        });
-
-        if (newStock === 0 && current > 0) {
-          await createStockOutNotification({ ...prod, id: item.productId });
+    let shouldRegenerate = false;
+    await runTransaction(db, async (transaction) => {
+      shouldRegenerate = false;
+      const stockOutProducts: any[] = [];
+      const prodRefs = order.items.map(item => doc(db, PRODUCTS_COL, item.productId));
+      const prodSnaps = await Promise.all(prodRefs.map(ref => transaction.get(ref)));
+      
+      const orderRef = doc(db, OFFLINE_ORDERS_COL, order.id);
+      transaction.set(orderRef, order, { merge: true });
+      
+      order.items.forEach((item, index) => {
+        const prodSnap = prodSnaps[index];
+        if (prodSnap.exists()) {
+          const prod = prodSnap.data() as Product;
+          const current = prod.currentStock || 0;
+          const newStock = Math.max(0, current - item.qty);
+          transaction.update(prodRefs[index], {
+            currentStock: newStock,
+            updatedAt: new Date().toISOString()
+          });
+          if (newStock === 0 && current > 0) {
+            shouldRegenerate = true;
+            stockOutProducts.push({ ...prod, id: item.productId });
+          }
         }
+      });
+      
+      stockOutProducts.forEach(prod => {
+        const notifId = `NOTIF-STK-${prod.id}-${Date.now()}`;
+        const notifRef = doc(db, NOTIFICATIONS_COL, notifId);
+        transaction.set(notifRef, {
+          id: notifId,
+          type: 'stock-out',
+          productId: prod.id,
+          productName: prod.name,
+          sku: prod.sku,
+          createdAt: new Date().toISOString(),
+          status: 'unread'
+        });
+      });
+      
+      if (shouldRegenerate) {
+        const catalogRef = doc(db, CONFIGS_COL, 'catalog_sku');
+        transaction.set(catalogRef, { isStale: true }, { merge: true });
       }
-    }
+    });
 
-    await batch.commit();
+    if (shouldRegenerate) {
+      await generateStaticSKUCatalog();
+    }
   } catch (err: any) {
     console.warn('Firestore offline order write notice:', err?.message || err);
+  }
+}
+
+export async function resetDataInFirestore(options: {
+  resetOnlineEnquiries?: boolean;
+  resetOfflineOrders?: boolean;
+  resetGstInvoices?: boolean;
+}) {
+  try {
+    if (options.resetOnlineEnquiries) {
+      const snap = await getDocs(collection(db, ENQUIRIES_COL));
+      const batch = writeBatch(db);
+      snap.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    if (options.resetOfflineOrders) {
+      const snap = await getDocs(collection(db, OFFLINE_ORDERS_COL));
+      const batch = writeBatch(db);
+      snap.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    if (options.resetGstInvoices) {
+      const snap = await getDocs(collection(db, INVOICES_COL));
+      const batch = writeBatch(db);
+      snap.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (err: any) {
+    console.warn('Firestore reset data notice:', err?.message || err);
   }
 }
 
@@ -400,6 +548,50 @@ export async function saveShopDetailsToFirestore(shopDetails: ShopDetails) {
 
 export const CONFIGS_COL = 'configs';
 export const NOTIFICATIONS_COL = 'notifications';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined | null;
+    email: string | undefined | null;
+    emailVerified: boolean | undefined | null;
+    isAnonymous: boolean | undefined | null;
+    tenantId: string | undefined | null;
+    providerInfo: any[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid || null,
+      email: auth?.currentUser?.email || null,
+      emailVerified: auth?.currentUser?.emailVerified || null,
+      isAnonymous: auth?.currentUser?.isAnonymous || null,
+      tenantId: auth?.currentUser?.tenantId || null,
+      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.warn('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export async function createStockOutNotification(product: any) {
   try {
@@ -485,7 +677,7 @@ export async function generateStaticSKUCatalog() {
     // 4. Reset stockout alerts
     await clearNotifications();
   } catch (err: any) {
-    console.error('Failed to generate static SKU catalog:', err?.message || err);
+    console.warn('Failed to generate static SKU catalog:', err?.message || err);
   }
 }
 
@@ -501,11 +693,10 @@ export async function fetchStaticSKUCatalog() {
         isStale?: boolean;
       };
     }
-
+    
     // First-time fallback: build dynamically and save
     console.log('Static SKU Catalog not found, compiling first-time snapshot...');
     await generateStaticSKUCatalog();
-
     const freshSnap = await getDoc(catalogRef);
     if (freshSnap.exists()) {
       return freshSnap.data() as {

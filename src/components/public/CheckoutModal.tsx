@@ -167,7 +167,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </span>
                   </div>
                   <span className="font-bold font-mono text-red-700">
-                    {formatINR(item.product.sellingPrice * item.qty)}
+                    {formatINR((item.product.discountPercent !== undefined ? (item.product.discountPercent > 0 ? item.product.sellingPrice * (1 - item.product.discountPercent / 100) : item.product.sellingPrice) : (item.product.sellingPrice * 0.5)) * item.qty)}
                   </span>
                 </div>
               ))}

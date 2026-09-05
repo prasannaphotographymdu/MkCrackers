@@ -1,5 +1,5 @@
-import React from 'react';
-import { Flame, ShieldCheck, ShoppingBag, PhoneCall, Sparkles, LogOut, LayoutDashboard, Home, Truck } from 'lucide-react';
+import React, { useState } from 'react';
+import { Flame, ShieldCheck, ShoppingBag, PhoneCall, Sparkles, LogOut, LayoutDashboard, Home, Truck, Menu, X } from 'lucide-react';
 import { ShopDetails } from '../types';
 import { formatINR } from '../lib/utils';
 
@@ -28,6 +28,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTracker,
   shopDetails
 }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const companyName = shopDetails?.name || 'Sri Laxmi Fireworks';
   const phone = shopDetails?.phone || '+91 98421 99887';
   const gstin = shopDetails?.gstin || '33AAAAA0000A1Z5';
@@ -74,47 +76,74 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action Controls & Navigation */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Main Navigation Tabs */}
-          <button
-            onClick={() => onChangeView('landing')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded font-bold text-xs transition-all ${
-              currentView === 'landing'
-                ? 'bg-red-800 text-amber-300 border border-red-500/60 shadow-inner'
-                : 'text-red-100 hover:bg-red-700'
-            }`}
-          >
-            <Home className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Home</span>
-          </button>
-
-          <button
-            onClick={() => onChangeView('shop')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-bold text-xs transition-all ${
-              currentView === 'shop'
-                ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-md'
-                : 'bg-red-700 text-white hover:bg-red-800 border border-red-500/50'
-            }`}
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Online Store</span>
-          </button>
-
-          {onOpenTracker && (
+          {/* Desktop Navigation Tabs (Hidden on Mobile) */}
+          <div className="hidden md:flex items-center gap-2">
             <button
-              onClick={onOpenTracker}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-800 hover:bg-red-900 border border-amber-300/60 text-amber-300 font-bold text-xs transition-all shadow-sm"
-              title="Track your firecrackers order status"
+              onClick={() => onChangeView('landing')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded font-bold text-xs transition-all ${
+                currentView === 'landing'
+                  ? 'bg-red-800 text-amber-300 border border-red-500/60 shadow-inner'
+                  : 'text-red-100 hover:bg-red-700'
+              }`}
             >
-              <Truck className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">Track Order</span>
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
             </button>
-          )}
 
-          {/* Cart Pill for Customer View */}
+            <button
+              onClick={() => onChangeView('shop')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-bold text-xs transition-all ${
+                currentView === 'shop'
+                  ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-md'
+                  : 'bg-red-700 text-white hover:bg-red-800 border border-red-500/50'
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Online Store</span>
+            </button>
+
+            {onOpenTracker && (
+              <button
+                onClick={() => onOpenTracker()}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-800 hover:bg-red-900 border border-amber-300/60 text-amber-300 font-bold text-xs transition-all shadow-sm"
+                title="Track your firecrackers order status"
+              >
+                <Truck className="w-3.5 h-3.5 text-amber-300" />
+                <span>Track Order</span>
+              </button>
+            )}
+
+            {/* Admin Controls (Only when admin is logged in) */}
+            {isAdminLoggedIn && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onChangeView(currentView === 'admin' ? 'landing' : 'admin')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded font-bold text-xs transition-all ${
+                    currentView === 'admin'
+                      ? 'bg-slate-900 text-amber-300 border border-slate-700'
+                      : 'bg-red-800 text-white hover:bg-red-900 border border-red-500/50'
+                  }`}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Admin Dashboard</span>
+                </button>
+
+                <button
+                  onClick={onAdminLogout}
+                  title="Logout Admin"
+                  className="p-1 rounded bg-red-800 hover:bg-red-900 text-red-100 hover:text-white transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Cart Pill for Customer View (Highly visible on both mobile and desktop) */}
           {currentView === 'shop' && (
             <button
               onClick={onOpenCart}
-              className="flex items-center gap-2 px-2.5 py-1 rounded bg-red-800 hover:bg-red-900 border border-amber-400/60 text-white shadow-sm transition-all"
+              className="flex items-center gap-2 px-2.5 py-1 rounded bg-red-800 hover:bg-red-900 border border-amber-400/60 text-white shadow-sm transition-all shrink-0"
             >
               <div className="text-left hidden md:block">
                 <div className="text-[9px] uppercase font-bold text-amber-300 leading-none">
@@ -124,38 +153,100 @@ export const Header: React.FC<HeaderProps> = ({
                   {cartTotalItems} items | {formatINR(cartTotalAmount)}
                 </div>
               </div>
-              <span className="md:hidden flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono font-bold text-[10px]">
+              <span className="md:hidden flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono font-bold text-[10px]">
                 {cartTotalItems}
               </span>
             </button>
           )}
 
-          {/* Admin Controls (Only when admin is logged in or on admin view) */}
+          {/* Mobile Menu Toggle Button (Visible only on mobile) */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-1.5 rounded bg-red-800 hover:bg-red-900 text-white border border-red-500/30 transition-all shrink-0 cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Navigation Dropdown Menu (Visible only on mobile when toggled) */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-red-700 border-t border-red-800 px-3 py-2.5 space-y-1.5 shadow-xl">
+          <button
+            onClick={() => {
+              onChangeView('landing');
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded font-bold text-xs transition-all ${
+              currentView === 'landing'
+                ? 'bg-red-900 text-amber-300 border border-red-600'
+                : 'text-red-100 hover:bg-red-800'
+            }`}
+          >
+            <Home className="w-4 h-4" />
+            <span>Home</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onChangeView('shop');
+              setIsMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded font-bold text-xs transition-all ${
+              currentView === 'shop'
+                ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-md'
+                : 'bg-red-800 text-white hover:bg-red-900'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Online Store</span>
+          </button>
+
+          {onOpenTracker && (
+            <button
+              onClick={() => {
+                onOpenTracker();
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded bg-red-900/40 hover:bg-red-900/60 border border-amber-400/20 text-amber-300 font-bold text-xs transition-all"
+            >
+              <Truck className="w-4 h-4 text-amber-300" />
+              <span>Track Order</span>
+            </button>
+          )}
+
           {isAdminLoggedIn && (
-            <div className="flex items-center gap-1">
+            <div className="pt-2 border-t border-red-800/80 space-y-1.5">
               <button
-                onClick={() => onChangeView(currentView === 'admin' ? 'landing' : 'admin')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded font-bold text-xs transition-all ${
+                onClick={() => {
+                  onChangeView(currentView === 'admin' ? 'landing' : 'admin');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded font-bold text-xs transition-all ${
                   currentView === 'admin'
                     ? 'bg-slate-900 text-amber-300 border border-slate-700'
-                    : 'bg-red-800 text-white hover:bg-red-900 border border-red-500/50'
+                    : 'bg-red-800 text-white hover:bg-red-900'
                 }`}
               >
-                <LayoutDashboard className="w-3.5 h-3.5 text-amber-300" />
-                <span className="hidden sm:inline">Admin Dashboard</span>
+                <LayoutDashboard className="w-4 h-4 text-amber-300" />
+                <span>Admin Dashboard</span>
               </button>
 
               <button
-                onClick={onAdminLogout}
-                title="Logout Admin"
-                className="p-1 rounded bg-red-800 hover:bg-red-900 text-red-100 hover:text-white transition-colors"
+                onClick={() => {
+                  onAdminLogout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded bg-red-900/50 hover:bg-red-950 text-red-100 hover:text-white transition-colors"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-4 h-4" />
+                <span>Logout Admin</span>
               </button>
             </div>
           )}
         </div>
-      </div>
+      )}
     </header>
   );
 };

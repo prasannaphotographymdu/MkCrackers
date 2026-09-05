@@ -19,7 +19,7 @@ import {
   Receipt,
   RotateCcw
 } from 'lucide-react';
-import { Product, Category, ShopDetails, OfflineOrder, PaymentMode } from '../../types';
+import { Product, Category, ShopDetails, OfflineOrder, PaymentMode, Invoice } from '../../types';
 import { formatINR } from '../../lib/utils';
 import { POSReceiptModal } from './POSReceiptModal';
 
@@ -27,6 +27,8 @@ interface POSBillingProps {
   products: Product[];
   categories: Category[];
   shopDetails: ShopDetails;
+  offlineOrders?: OfflineOrder[];
+  invoices?: Invoice[];
   onCreateOfflineOrder: (orderData: {
     customerName: string;
     customerPhone: string;
@@ -36,6 +38,7 @@ interface POSBillingProps {
     upiAmount?: number;
     upiRefNo?: string;
     discountAmount?: number;
+    isGstBill?: boolean;
   }) => Promise<OfflineOrder>;
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message: string) => void;
 }
@@ -44,6 +47,8 @@ export const POSBilling: React.FC<POSBillingProps> = ({
   products = [],
   categories = [],
   shopDetails,
+  offlineOrders = [],
+  invoices = [],
   onCreateOfflineOrder,
   onShowToast
 }) => {
@@ -67,10 +72,38 @@ export const POSBilling: React.FC<POSBillingProps> = ({
 
   // Completed order for receipt popup
   const [completedOrder, setCompletedOrder] = useState<OfflineOrder | null>(null);
+  
+  // GST Temp Toggle
+  const [isGstBill, setIsGstBill] = useState(false);
+
+  // Manual Item Entry State
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualItemName, setManualItemName] = useState('');
+  const [manualItemSku, setManualItemSku] = useState('');
+  const [manualItemHsn, setManualItemHsn] = useState('');
+  const [manualItemQty, setManualItemQty] = useState('1');
+  const [manualItemPrice, setManualItemPrice] = useState('');
+  const [manualItemGst, setManualItemGst] = useState('18');
+
+  // Compute product sales frequencies
+  const productSalesCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (offlineOrders || []).forEach(order => {
+      order.items.forEach(item => {
+        counts[item.productId] = (counts[item.productId] || 0) + item.qty;
+      });
+    });
+    (invoices || []).forEach(inv => {
+      inv.items.forEach(item => {
+        counts[item.productId] = (counts[item.productId] || 0) + item.qty;
+      });
+    });
+    return counts;
+  }, [offlineOrders, invoices]);
 
   // Filter products (active only and with stock > 0 preferred)
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    let filtered = products.filter((p) => {
       if (p.status !== 'active') return false;
       const matchesCat = selectedCategory === 'all' || p.categoryId === selectedCategory;
       const matchesSearch =
@@ -78,7 +111,15 @@ export const POSBilling: React.FC<POSBillingProps> = ({
         p.sku.toLowerCase().includes(search.toLowerCase());
       return matchesCat && matchesSearch;
     });
-  }, [products, selectedCategory, search]);
+
+    if (search === '' && selectedCategory === 'all') {
+      // Sort by highest purchased and keep only top 10
+      filtered.sort((a, b) => (productSalesCount[b.id] || 0) - (productSalesCount[a.id] || 0));
+      return filtered.slice(0, 10);
+    }
+    
+    return filtered;
+  }, [products, selectedCategory, search, productSalesCount]);
 
   // Calculations
   const subtotal = useMemo(() => {
@@ -119,7 +160,7 @@ export const POSBilling: React.FC<POSBillingProps> = ({
         };
         return updated;
       }
-      return [...prev, { product, qty: 1, unitPrice: product.sellingPrice }];
+      return [...prev, { product, qty: 1, unitPrice: product.discountPercent !== undefined ? (product.discountPercent > 0 ? product.sellingPrice * (1 - product.discountPercent / 100) : product.sellingPrice) : (product.sellingPrice * 0.5) }];
     });
   };
 
@@ -156,6 +197,51 @@ export const POSBilling: React.FC<POSBillingProps> = ({
     setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
+  const handleAddManualItem = () => {
+    const qty = parseInt(manualItemQty) || 1;
+    const price = parseFloat(manualItemPrice) || 0;
+    const gst = parseFloat(manualItemGst) || 0;
+    const name = manualItemName.trim() || 'Custom Item';
+
+    if (price <= 0) {
+      onShowToast('error', 'Invalid Price', 'Please enter a valid unit price.');
+      return;
+    }
+
+    const customProduct: Product = {
+      hsnCode: manualItemHsn.trim() || '36041000',
+      id: `custom-${Date.now()}`,
+      sku: manualItemSku.trim() || 'CUSTOM',
+      name: name,
+      description: 'Manually added POS item',
+      categoryId: '',
+      categoryName: 'Custom',
+      image: '',
+      purchasePrice: price,
+      sellingPrice: price,
+      discountPercent: 0,
+      itemsPerPack: '1',
+      gstPercent: gst,
+      openingStock: 9999,
+      currentStock: 9999,
+      lowStockLimit: 0,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+
+    setCartItems((prev) => {
+      return [...prev, { product: customProduct, qty, unitPrice: price }];
+    });
+
+    setManualItemName('');
+    setManualItemSku('');
+    setManualItemHsn('');
+    setManualItemQty('1');
+    setManualItemPrice('');
+    setManualItemGst('18');
+    setShowManualEntry(false);
+  };
+
   const handleResetBill = () => {
     setCartItems([]);
     setCustomerName('');
@@ -165,6 +251,8 @@ export const POSBilling: React.FC<POSBillingProps> = ({
     setUpiAmountInput('');
     setUpiRefNo('');
     setDiscountInput('0');
+    setIsGstBill(false);
+    setShowManualEntry(false);
   };
 
   const handleCompleteOrder = async () => {
@@ -193,6 +281,7 @@ export const POSBilling: React.FC<POSBillingProps> = ({
           productId: it.product.id,
           productName: it.product.name,
           sku: it.product.sku,
+          hsnCode: it.product.hsnCode || '36041000',
           qty: it.qty,
           unitPrice: it.unitPrice,
           gstPercent,
@@ -215,7 +304,8 @@ export const POSBilling: React.FC<POSBillingProps> = ({
         paymentMode,
         cashAmount: paymentMode === 'Cash' ? grandTotal : paymentMode === 'Split' ? parseFloat(cashAmountInput) || 0 : 0,
         upiAmount: paymentMode === 'UPI' ? grandTotal : paymentMode === 'Split' ? parseFloat(upiAmountInput) || 0 : 0,
-        upiRefNo: upiRefNo.trim()
+        upiRefNo: upiRefNo.trim(),
+        isGstBill
       });
 
       onShowToast('success', 'Bill Completed', `POS Invoice ${newOrder.billNumber} created successfully!`);
@@ -299,6 +389,14 @@ export const POSBilling: React.FC<POSBillingProps> = ({
           </div>
 
           {/* Product Grid */}
+          {search === '' && selectedCategory === 'all' && (
+            <div className="flex items-center justify-between mb-1 mt-2 px-1">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Top 10 Quick Select Items
+              </h4>
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-1">
             {filteredProducts.map((p) => {
               const inCart = cartItems.find((item) => item.product.id === p.id);
@@ -334,8 +432,18 @@ export const POSBilling: React.FC<POSBillingProps> = ({
 
                   <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-extrabold text-slate-900">{formatINR(p.sellingPrice)}</span>
-                      <span className="text-[9px] text-slate-400 block line-through">{formatINR(p.purchasePrice * 2.5)}</span>
+                      {(() => {
+                        const dp = p.discountPercent !== undefined ? p.discountPercent : 50;
+                        const discountedPrice = dp > 0 ? p.sellingPrice * (1 - dp / 100) : p.sellingPrice;
+                        return dp > 0 ? (
+                          <>
+                            <span className="text-xs font-extrabold text-emerald-600">{formatINR(discountedPrice)}</span>
+                            <span className="text-[9px] text-slate-400 block line-through">{formatINR(p.sellingPrice)}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs font-extrabold text-slate-900">{formatINR(discountedPrice)}</span>
+                        );
+                      })()}
                     </div>
 
                     <div className="text-right">
@@ -367,10 +475,99 @@ export const POSBilling: React.FC<POSBillingProps> = ({
                 <ShoppingCart className="w-5 h-5 text-amber-500" />
                 <h3 className="font-extrabold text-slate-900 text-base">Current POS Bill</h3>
               </div>
-              <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">
-                {cartItems.length} items
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowManualEntry(!showManualEntry)}
+                  className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Custom Item
+                </button>
+                <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">
+                  {cartItems.length} items
+                </span>
+              </div>
             </div>
+
+            {/* Manual Entry Form */}
+            {showManualEntry && (
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 mt-3 flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Item Name</label>
+                    <input
+                      type="text"
+                      value={manualItemName}
+                      onChange={(e) => setManualItemName(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
+                      placeholder="Custom Product"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">SKU</label>
+                    <input
+                      type="text"
+                      value={manualItemSku}
+                      onChange={(e) => setManualItemSku(e.target.value.toUpperCase())}
+                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
+                      placeholder="CUSTOM"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">HSN Code</label>
+                    <input
+                      type="text"
+                      value={manualItemHsn}
+                      onChange={(e) => setManualItemHsn(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
+                      placeholder="36041000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={manualItemQty}
+                      onChange={(e) => setManualItemQty(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Price (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={manualItemPrice}
+                      onChange={(e) => setManualItemPrice(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">GST %</label>
+                    <select
+                      value={manualItemGst}
+                      onChange={(e) => setManualItemGst(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
+                    >
+                      <option value="0">0% (None)</option>
+                      <option value="5">5%</option>
+                      <option value="12">12%</option>
+                      <option value="18">18%</option>
+                      <option value="28">28%</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddManualItem}
+                  className="w-full py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 mt-1 hover:bg-slate-800"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add to Bill
+                </button>
+              </div>
+            )}
 
             {/* Cart Items List */}
             <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100 my-3 pr-1">
@@ -575,6 +772,17 @@ export const POSBilling: React.FC<POSBillingProps> = ({
 
           {/* Subtotals & Generate Bill Button */}
           <div className="space-y-3 pt-3 border-t border-slate-200">
+            <div className="flex items-center justify-between p-2 bg-red-50 border border-red-100 rounded-lg">
+              <span className="text-xs font-bold text-red-900">Generate GST Bill</span>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isGstBill}
+                  onChange={(e) => setIsGstBill(e.target.checked)}
+                  className="rounded border-red-300 text-red-600 focus:ring-red-500 w-4 h-4"
+                />
+              </label>
+            </div>
             <div className="space-y-1.5 text-xs text-slate-600">
               <div className="flex justify-between">
                 <span>Items Subtotal:</span>

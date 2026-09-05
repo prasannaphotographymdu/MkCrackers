@@ -18,7 +18,7 @@ interface ReportsViewProps {
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({ onShowToast }) => {
-  const [activeTab, setActiveTab] = useState<'sales' | 'inventory' | 'orders' | 'categories' | 'offline'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'inventory' | 'orders' | 'categories' | 'offline' | 'gst'>('sales');
   const [reportData, setReportData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -52,6 +52,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onShowToast }) => {
       downloadCSV('category_sales_report.csv', reportData.categoryReport);
     } else if (activeTab === 'offline') {
       downloadCSV('offline_pos_sales_report.csv', reportData.offlineReport || []);
+    } else if (activeTab === 'gst') {
+      downloadCSV('gst_bills_report.csv', reportData.gstReport || []);
     }
 
     onShowToast('success', 'CSV Exported', `${activeTab.toUpperCase()} report saved to downloads.`);
@@ -160,6 +162,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onShowToast }) => {
           }`}
         >
           <Receipt className="w-3.5 h-3.5 text-amber-500" /> POS Offline Sales
+        </button>
+        <button
+          onClick={() => setActiveTab('gst')}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'gst'
+              ? 'bg-emerald-600 text-white shadow-sm font-black'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" /> GST Bills
         </button>
       </div>
 
@@ -357,6 +369,56 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onShowToast }) => {
                       <td className="py-1.5 px-3 text-right font-mono">{formatINR(r.subtotal)}</td>
                       <td className="py-1.5 px-3 text-right font-mono">{formatINR(r.gstAmount)}</td>
                       <td className="py-1.5 px-3 text-right font-mono font-bold text-amber-900">
+                        {formatINR(r.grandTotal)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 6. GST BILLS REPORT */}
+        {activeTab === 'gst' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-800">
+              <thead className="bg-emerald-50 text-slate-900 font-bold border-b border-emerald-200 uppercase tracking-tight text-[10px]">
+                <tr>
+                  <th className="py-2 px-3">Bill/Inv No</th>
+                  <th className="py-2 px-3">Source</th>
+                  <th className="py-2 px-3">Date</th>
+                  <th className="py-2 px-3">Customer</th>
+                  <th className="py-2 px-3">Phone</th>
+                  <th className="py-2 px-3 text-center">Items</th>
+                  <th className="py-2 px-3 text-right">Subtotal</th>
+                  <th className="py-2 px-3 text-right">GST Amount</th>
+                  <th className="py-2 px-3 text-right">Grand Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {!reportData.gstReport || reportData.gstReport.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-slate-400 font-medium">
+                      No GST Bills found.
+                    </td>
+                  </tr>
+                ) : (
+                  reportData.gstReport.map((r: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="py-1.5 px-3 font-bold text-slate-900 font-mono">{r.billNo}</td>
+                      <td className="py-1.5 px-3">
+                        <span className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${r.source === 'Online B2B' ? 'bg-blue-100 text-blue-900' : 'bg-amber-100 text-amber-900'}`}>
+                          {r.source}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-3 text-slate-600">{r.date}</td>
+                      <td className="py-1.5 px-3 font-bold text-slate-900">{r.customerName}</td>
+                      <td className="py-1.5 px-3 font-mono text-slate-600">{r.customerPhone}</td>
+                      <td className="py-1.5 px-3 text-center font-mono">{r.itemsCount}</td>
+                      <td className="py-1.5 px-3 text-right font-mono">{formatINR(r.subtotal)}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-emerald-700 font-bold">{formatINR(r.gstAmount)}</td>
+                      <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">
                         {formatINR(r.grandTotal)}
                       </td>
                     </tr>

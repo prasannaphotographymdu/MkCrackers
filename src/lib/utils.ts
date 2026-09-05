@@ -53,3 +53,32 @@ export function downloadCSV(filename: string, rows: object[]) {
   link.click();
   document.body.removeChild(link);
 }
+
+/**
+ * Normalizes pasted Unsplash URLs. If a webpage URL is pasted, converts it to a direct image URL.
+ */
+export function cleanImageUrl(url: string | undefined | null): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+
+  // If it's a standard Unsplash share/page URL
+  // Example: https://unsplash.com/photos/diwali-fireworks-Hsn7u003_pE
+  // Example: https://unsplash.com/photos/white-and-blue-cloudy-sky-f5_lfi2S-d4
+  // Example: https://unsplash.com/photos/Hsn7u003_pE
+  if (trimmed.includes('unsplash.com/photos/')) {
+    try {
+      const urlWithoutQuery = trimmed.split('?')[0];
+      const parts = urlWithoutQuery.split('/').filter(Boolean);
+      const lastPart = parts[parts.length - 1];
+      
+      if (lastPart) {
+        // Unsplash photo IDs are consistently exactly 11 characters long
+        const photoId = lastPart.length >= 11 ? lastPart.slice(-11) : lastPart;
+        return `https://images.unsplash.com/photo-${photoId}?w=500&auto=format&fit=crop&q=80`;
+      }
+    } catch (err) {
+      console.warn('Error parsing Unsplash photo ID:', err);
+    }
+  }
+  return trimmed;
+}

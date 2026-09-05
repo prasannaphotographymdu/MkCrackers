@@ -22,7 +22,7 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
         <div className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3.5 bg-slate-900 text-white border-b border-slate-800 shrink-0 print:hidden">
           <div className="flex items-center gap-2">
             <Receipt className="w-5 h-5 text-amber-400 shrink-0" />
-            <span className="font-bold text-sm sm:text-base truncate">POS Tax Invoice / Receipt</span>
+            <span className="font-bold text-sm sm:text-base truncate">{order.isGstBill ? 'POS Tax Invoice / Receipt' : 'POS Estimate / Receipt'}</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -48,7 +48,7 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
             <h2 className="font-black text-lg text-slate-900 uppercase tracking-wide">{shopDetails.name}</h2>
             <p className="text-[11px] text-slate-600 font-sans font-medium">{shopDetails.tagline}</p>
             <p className="text-[10px] text-slate-500 mt-1 font-sans">{shopDetails.address}, {shopDetails.cityState}</p>
-            <p className="text-[10px] text-slate-500 font-sans">Phone: {shopDetails.phone} | GSTIN: {shopDetails.gstin}</p>
+            <p className="text-[10px] text-slate-500 font-sans">Phone: {shopDetails.phone}{order.isGstBill && shopDetails.gstin ? ` | GSTIN: ${shopDetails.gstin}` : ''}</p>
           </div>
 
           {/* Bill Info */}
@@ -73,6 +73,7 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
               <thead>
                 <tr className="border-b border-slate-300 text-[10px] uppercase text-slate-500">
                   <th className="pb-1">Item</th>
+                  {order.isGstBill && <th className="pb-1 text-center">HSN</th>}
                   <th className="pb-1 text-center">Qty</th>
                   <th className="pb-1 text-right">Price</th>
                   <th className="pb-1 text-right">Amount</th>
@@ -83,13 +84,15 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
                   const lineAmount = typeof it.amount === 'number' && !isNaN(it.amount) ? it.amount : (it.qty || 1) * (it.unitPrice || 0);
                   const pName = it.productName || 'Firecracker Item';
                   const pSku = it.sku || 'N/A';
+                  const pHsn = it.hsnCode || '36041000';
                   const gst = it.gstPercent || 18;
                   return (
                     <tr key={idx} className="text-[11px]">
                       <td className="py-1.5 pr-2 font-medium text-slate-800">
                         <div>{pName}</div>
-                        <div className="text-[9px] text-slate-400 font-sans">SKU: {pSku} &bull; GST {gst}%</div>
+                        <div className="text-[9px] text-slate-400 font-sans">SKU: {pSku}{order.isGstBill ? ` \u2022 GST ${gst}%` : ''}</div>
                       </td>
+                      {order.isGstBill && <td className="py-1.5 text-center font-mono text-slate-500">{pHsn}</td>}
                       <td className="py-1.5 text-center font-bold text-slate-900">{it.qty}</td>
                       <td className="py-1.5 text-right font-medium">{formatINR(it.unitPrice)}</td>
                       <td className="py-1.5 text-right font-bold text-slate-900">{formatINR(lineAmount)}</td>
@@ -113,21 +116,30 @@ export const POSReceiptModal: React.FC<POSReceiptModalProps> = ({ order, shopDet
               return sum + amt / (1 + g / 100);
             }, 0);
             const calcGstSum = calcTotalSum - calcBaseSum;
-
-            const displaySubtotal = order.subtotal || Number(calcBaseSum.toFixed(2));
-            const displayGst = order.gstAmount || Number(calcGstSum.toFixed(2));
+            
             const displayGrandTotal = order.grandTotal || Math.max(0, Math.round(calcTotalSum - (order.discountAmount || 0)));
+            const displaySubtotal = order.isGstBill ? (order.subtotal ?? Number(calcBaseSum.toFixed(2))) : displayGrandTotal;
+            const displayGst = order.isGstBill ? (order.gstAmount ?? Number(calcGstSum.toFixed(2))) : 0;
 
             return (
               <div className="pt-3 border-t border-dashed border-slate-300 space-y-1 text-right text-[11px]">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal (Excl. GST):</span>
-                  <span>{formatINR(displaySubtotal)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>GST Total:</span>
-                  <span>{formatINR(displayGst)}</span>
-                </div>
+                {order.isGstBill ? (
+                  <>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Subtotal (Excl. GST):</span>
+                      <span>{formatINR(displaySubtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>GST Total:</span>
+                      <span>{formatINR(displayGst)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Items Total:</span>
+                    <span>{formatINR(calcTotalSum)}</span>
+                  </div>
+                )}
                 {Boolean(order.discountAmount) && (
                   <div className="flex justify-between text-green-700 font-semibold">
                     <span>Discount:</span>

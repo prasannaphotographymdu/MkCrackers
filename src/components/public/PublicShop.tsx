@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
   ChevronDown,
@@ -13,7 +14,11 @@ import {
   Filter,
   Layers,
   LayoutGrid,
-  List
+  List,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Check
 } from 'lucide-react';
 import { Category, Product, CartItem, ShopDetails } from '../../types';
 import { ProductCard } from './ProductCard';
@@ -68,7 +73,9 @@ export const PublicShop: React.FC<PublicShopProps> = ({
         const product = products.find((p) => p.id === prodId);
         if (product) {
           items += q;
-          amount += product.sellingPrice * q;
+          const dp = product.discountPercent !== undefined ? product.discountPercent : 50;
+          const discountedPrice = dp > 0 ? product.sellingPrice * (1 - dp / 100) : product.sellingPrice;
+          amount += discountedPrice * q;
           list.push({ product, qty: q });
         }
       }
@@ -131,7 +138,7 @@ export const PublicShop: React.FC<PublicShopProps> = ({
   }, [categories, filteredProducts]);
 
   const minOrderMet = totalAmount >= minOrderAmount;
-  const progressPercent = Math.min(100, (totalAmount / Math.max(1, minOrderAmount)) * 100);
+  const totalActiveProductsCount = useMemo(() => products.filter((p) => p.status === 'active').length, [products]);
 
   return (
     <div className="pb-24 sm:pb-28 min-h-screen bg-slate-100 text-slate-900 font-sans">
@@ -169,12 +176,13 @@ export const PublicShop: React.FC<PublicShopProps> = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 mt-3 sm:mt-4">
-        {/* Search Bar & Category Filter Controls */}
+        {/* Top Filter & Toolbar Bar */}
         <div className="bg-white border border-slate-200 rounded-lg p-2.5 sm:p-3 shadow-xs mb-3 sm:mb-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-2.5">
-            {/* Search Input & View Switcher */}
-            <div className="flex items-center gap-2 w-full md:w-auto flex-1">
-              <div className="relative flex-1 md:w-80">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+            {/* Left Controls: Search Input */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {/* Search Bar */}
+              <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <input
                   type="text"
@@ -185,7 +193,7 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                 />
               </div>
 
-              {/* View Mode Switcher Toggle (Grid vs List) */}
+              {/* View Switcher (List / Grid) */}
               <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 shrink-0">
                 <button
                   onClick={() => setViewMode('list')}
@@ -194,7 +202,7 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                       ? 'bg-red-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Compact List View for Fast Quick Ordering"
+                  title="Compact List View"
                 >
                   <List className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline text-[11px]">List</span>
@@ -206,13 +214,40 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                       ? 'bg-red-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Card Grid View"
+                  title="Grid View"
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline text-[11px]">Grid</span>
                 </button>
               </div>
+            </div>
 
+            {/* Right Controls: Category Dropdown Select (Replaces chips) & Accordion Actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {/* CATEGORY FILTER DROPDOWN SELECT */}
+              <div className="relative flex items-center gap-1 bg-red-50/70 border border-red-200 rounded-md px-2 py-1 shrink-0">
+                <Filter className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                <span className="text-[11px] font-bold text-red-900 shrink-0 hidden xs:inline">Filter:</span>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="bg-white text-slate-900 text-xs font-bold rounded px-2 py-1 border border-slate-300 focus:outline-none focus:border-red-500 cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+                >
+                  <option value="all">All Categories ({totalActiveProductsCount})</option>
+                  {categories.map((cat) => {
+                    const count = products.filter(
+                      (p) => p.categoryId === cat.id && p.status === 'active'
+                    ).length;
+                    return (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Order Tracker */}
               {onOpenTracker && (
                 <button
                   onClick={() => onOpenTracker()}
@@ -223,170 +258,148 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                   <span className="hidden xs:inline">Track Order</span>
                 </button>
               )}
-            </div>
 
-            {/* Category Filter Chips */}
-            <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 text-xs no-scrollbar">
-              <div className="flex items-center gap-1 text-[11px] text-slate-500 font-bold uppercase shrink-0">
-                <Filter className="w-3 h-3 text-red-600" /> Filter:
+              {/* Expand/Collapse All Accordion Buttons */}
+              <div className="flex items-center gap-1 text-xs shrink-0">
+                <button
+                  onClick={expandAll}
+                  className="px-2 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1 text-[11px] font-semibold"
+                  title="Expand All Category Accordions"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-red-600" /> Open All
+                </button>
+                <button
+                  onClick={collapseAll}
+                  className="px-2 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1 text-[11px] font-semibold"
+                  title="Collapse All Category Accordions"
+                >
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> Close All
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors shrink-0 ${
-                  selectedCategory === 'all'
-                    ? 'bg-red-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                }`}
-              >
-                All ({products.filter((p) => p.status === 'active').length})
-              </button>
-              {categories.map((cat) => {
-                const count = products.filter(
-                  (p) => p.categoryId === cat.id && p.status === 'active'
-                ).length;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors shrink-0 ${
-                      selectedCategory === cat.id
-                        ? 'bg-red-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                    }`}
-                  >
-                    {cat.name} ({count})
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Accordion Controls */}
-            <div className="flex items-center gap-1.5 text-xs shrink-0 self-end md:self-auto">
-              <button
-                onClick={expandAll}
-                className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1 text-[11px] font-semibold"
-              >
-                <ChevronDown className="w-3.5 h-3.5 text-red-600" /> Open All
-              </button>
-              <button
-                onClick={collapseAll}
-                className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1 text-[11px] font-semibold"
-              >
-                <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> Close All
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Collapsible Categories & Product Catalog */}
-        <div className="space-y-3 sm:space-y-4">
-          {categories.map((cat) => {
-            const catProducts = groupedProducts[cat.id] || [];
-            if (catProducts.length === 0 && (searchTerm || selectedCategory !== 'all')) {
-              return null; // Hide empty categories when filtering
-            }
+        {/* Main Content Area: Product Catalog */}
+        <div className="flex flex-col md:flex-row items-start gap-3 sm:gap-4">
+          {/* RIGHT PRODUCT CATALOG MAIN AREA */}
+          <div className="flex-1 min-w-0 w-full space-y-3 sm:space-y-4">
+            {categories.map((cat) => {
+              const catProducts = groupedProducts[cat.id] || [];
+              if (catProducts.length === 0 && (searchTerm || selectedCategory !== 'all')) {
+                return null; // Hide empty categories when filtering
+              }
 
-            const isExpanded = expandedCategories[cat.id] !== false; // default ALL categories OPEN
+              const isExpanded = expandedCategories[cat.id] !== false; // default ALL categories OPEN
 
-            return (
-              <div
-                key={cat.id}
-                className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs transition-all"
-              >
-                {/* Category Header Accordion Bar */}
-                <button
-                  onClick={() => toggleCategory(cat.id)}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 hover:bg-slate-100/80 transition-colors flex items-center justify-between text-left border-b border-slate-200"
+              return (
+                <div
+                  key={cat.id}
+                  className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs transition-all"
                 >
-                  <div className="flex items-center gap-2 sm:gap-2.5">
-                    <div className="p-1 sm:p-1.5 rounded bg-red-600 text-white shadow-xs">
-                      <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  {/* Category Header Accordion Bar */}
+                  <button
+                    onClick={() => toggleCategory(cat.id)}
+                    className="w-full p-2.5 sm:p-3 bg-slate-50 hover:bg-slate-100/80 transition-colors flex items-center justify-between text-left border-b border-slate-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-2.5">
+                      <div className="p-1 sm:p-1.5 rounded bg-red-600 text-white shadow-xs">
+                        <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                          {cat.name}
+                          <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[10px] font-mono font-bold border border-red-200">
+                            {catProducts.length} items
+                          </span>
+                        </h3>
+                        {cat.description && (
+                          <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 line-clamp-1">{cat.description}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                        {cat.name}
-                        <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[10px] font-mono font-bold border border-red-200">
-                          {catProducts.length} items
-                        </span>
-                      </h3>
-                      {cat.description && (
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 line-clamp-1">{cat.description}</p>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                        {isExpanded ? 'Collapse' : 'Expand'}
+                      </span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
-                  </div>
+                  </button>
 
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
-                      {isExpanded ? 'Collapse' : 'Expand'}
-                    </span>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-red-600" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                  {/* Products Container for this category with motion animation */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        className="p-2 sm:p-4 overflow-hidden"
+                      >
+                        {catProducts.length === 0 ? (
+                          <div className="text-center py-6 text-slate-500 text-xs">
+                            No active products available in this category.
+                          </div>
+                        ) : viewMode === 'list' ? (
+                          <div className="space-y-1.5">
+                            {catProducts.map((product) => (
+                              <ProductCard
+                                key={product.id}
+                                product={product}
+                                quantity={cart[product.id] || 0}
+                                onUpdateQuantity={onUpdateCartQty}
+                                viewMode="list"
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
+                            {catProducts.map((product) => (
+                              <ProductCard
+                                key={product.id}
+                                product={product}
+                                quantity={cart[product.id] || 0}
+                                onUpdateQuantity={onUpdateCartQty}
+                                viewMode="grid"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </motion.div>
                     )}
-                  </div>
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+
+            {filteredProducts.length === 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg p-8 text-center shadow-xs">
+                <Package className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                <h3 className="text-base font-bold text-slate-900">No products found</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Try searching for another keyword or clear your category filter.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('all');
+                  }}
+                  className="mt-3 px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-xs"
+                >
+                  Clear Search & Filters
                 </button>
-
-                {/* Products Container for this category */}
-                {isExpanded && (
-                  <div className="p-2 sm:p-4">
-                    {catProducts.length === 0 ? (
-                      <div className="text-center py-6 text-slate-500 text-xs">
-                        No active products available in this category.
-                      </div>
-                    ) : viewMode === 'list' ? (
-                      <div className="space-y-1.5">
-                        {catProducts.map((product) => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            quantity={cart[product.id] || 0}
-                            onUpdateQuantity={onUpdateCartQty}
-                            viewMode="list"
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
-                        {catProducts.map((product) => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            quantity={cart[product.id] || 0}
-                            onUpdateQuantity={onUpdateCartQty}
-                            viewMode="grid"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            );
-          })}
-
-          {filteredProducts.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-lg p-8 text-center shadow-xs">
-              <Package className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-              <h3 className="text-base font-bold text-slate-900">No products found</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Try searching for another keyword or clear your category filter.
-              </p>
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory('all');
-                }}
-                className="mt-3 px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-xs"
-              >
-                Clear Search & Filters
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Redesigned Compact Mobile & Desktop Sticky Footer Bar */}
+      {/* Compact Mobile & Desktop Sticky Footer Bar */}
       <div id="root-selected-footer" className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 shadow-2xl px-2.5 py-2 text-white">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           {/* Order Summary & Progress */}
@@ -454,3 +467,4 @@ export const PublicShop: React.FC<PublicShopProps> = ({
     </div>
   );
 };
+

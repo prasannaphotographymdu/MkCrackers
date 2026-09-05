@@ -10,6 +10,7 @@ interface ProductCardProps {
   viewMode?: 'grid' | 'list';
 }
 
+console.log("ProductCard loaded version 2");
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   quantity,
@@ -18,6 +19,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const isOutOfStock = product.currentStock === 0;
   const isLowStock = product.currentStock > 0 && product.currentStock <= product.lowStockLimit;
+
+  const discountPercent = product.discountPercent !== undefined ? product.discountPercent : 50;
+  const discountedPrice = discountPercent > 0 ? product.sellingPrice * (1 - discountPercent / 100) : product.sellingPrice;
 
   const handleIncrement = () => {
     if (isOutOfStock) return;
@@ -44,8 +48,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         className={`group flex items-center justify-between gap-2 bg-white border rounded-lg p-2 sm:p-2.5 transition-all duration-150 hover:shadow-sm ${
           isOutOfStock
             ? 'border-slate-200 opacity-70 bg-slate-50'
-            : isLowStock
-            ? 'border-amber-200 bg-amber-50/10 hover:border-amber-400'
             : 'border-slate-200 hover:border-red-400'
         } ${quantity > 0 ? 'bg-red-50/30 border-red-300 ring-1 ring-red-200' : ''}`}
       >
@@ -57,10 +59,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               alt={product.name}
               className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
               loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80';
-              }}
             />
             <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-[8px] font-mono text-slate-200 text-center py-0.2">
               {product.sku}
@@ -76,22 +74,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[9px] font-bold uppercase">
                   Out
                 </span>
-              ) : isLowStock ? (
-                <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9px] font-bold uppercase">
-                  Low ({product.currentStock})
-                </span>
               ) : null}
             </div>
 
             <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-500 mt-0.5">
               <span className="font-semibold text-slate-700">{product.itemsPerPack}</span>
               <span>•</span>
-              <span className="font-mono font-bold text-red-700 text-xs">
-                {formatINR(product.sellingPrice)}
-              </span>
+              {discountPercent > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-slate-400 line-through text-[10px]">
+                    {formatINR(product.sellingPrice)}
+                  </span>
+                  <span className="font-mono font-bold text-emerald-600 text-xs">
+                    {formatINR(discountedPrice)}
+                  </span>
+                </div>
+              ) : (
+                <span className="font-mono font-bold text-emerald-600 text-xs">
+                  {formatINR(discountedPrice)}
+                </span>
+              )}
               {quantity > 0 && (
                 <span className="hidden xs:inline-block font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                  Sub: {formatINR(product.sellingPrice * quantity)}
+                  Sub: {formatINR(discountedPrice * quantity)}
                 </span>
               )}
             </div>
@@ -138,8 +143,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       className={`group relative flex flex-col justify-between bg-white border rounded-md p-2.5 transition-all duration-200 hover:shadow-md ${
         isOutOfStock
           ? 'border-slate-200 opacity-75 bg-slate-50'
-          : isLowStock
-          ? 'border-amber-300 hover:border-amber-500 bg-amber-50/20'
           : 'border-slate-200 hover:border-red-500'
       } ${quantity > 0 ? 'ring-1 ring-red-400 border-red-300' : ''}`}
     >
@@ -153,10 +156,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               isOutOfStock ? 'grayscale opacity-50' : ''
             }`}
             loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80';
-            }}
           />
 
           {/* SKU Badge */}
@@ -164,15 +163,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.sku}
           </div>
 
-          {/* Stock Status Badge */}
           <div className="absolute top-1.5 right-1.5">
             {isOutOfStock ? (
               <span className="px-1.5 py-0.5 rounded bg-red-100 border border-red-300 text-red-800 text-[10px] font-bold uppercase tracking-wider">
                 Out of Stock
-              </span>
-            ) : isLowStock ? (
-              <span className="px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold uppercase tracking-wider flex items-center gap-0.5">
-                <AlertCircle className="w-3 h-3 text-amber-600" /> Low ({product.currentStock})
               </span>
             ) : (
               <span className="px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
@@ -205,9 +199,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div>
             <span className="text-[10px] text-slate-500 block font-medium uppercase">Wholesale Rate</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-sm font-black text-red-700 font-mono">
-                {formatINR(product.sellingPrice)}
-              </span>
+              {discountPercent > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-slate-400 line-through font-mono">
+                    {formatINR(product.sellingPrice)}
+                  </span>
+                  <span className="text-sm font-black text-emerald-600 font-mono">
+                    {formatINR(discountedPrice)}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm font-black text-emerald-600 font-mono">
+                  {formatINR(discountedPrice)}
+                </span>
+              )}
               <span className="text-[9px] text-slate-400 font-medium">+18% GST</span>
             </div>
           </div>
@@ -215,7 +220,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <div className="text-right">
               <span className="text-[9px] text-slate-500 uppercase font-semibold block">Subtotal</span>
               <span className="text-xs font-bold text-emerald-700 font-mono">
-                {formatINR(product.sellingPrice * quantity)}
+                {formatINR(discountedPrice * quantity)}
               </span>
             </div>
           )}

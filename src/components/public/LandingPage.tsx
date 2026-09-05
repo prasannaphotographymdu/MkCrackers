@@ -18,7 +18,18 @@ import {
 } from 'lucide-react';
 import { ShopDetails, Category, Product } from '../../types';
 import { formatINR } from '../../lib/utils';
-import { SkyshotCanvas } from './SkyshotCanvas';
+
+const CATEGORY_IMAGES: Record<string, string> = {
+  'cat-1': 'https://images.unsplash.com/photo-1541256942802-7b29531f0df8?w=500&auto=format&fit=crop&q=80', // Loud cracker explosion
+  'cat-2': 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=500&auto=format&fit=crop&q=80', // Garland sound series / sparkles
+  'cat-3': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80', // Spinner ground fireworks / sparkles circle
+  'cat-4': 'https://images.unsplash.com/photo-1533234427049-9e9bb093186d?w=500&auto=format&fit=crop&q=80', // Flower pots fountain
+  'cat-5': 'https://images.unsplash.com/photo-1498931290022-91a53b3a159e?w=500&auto=format&fit=crop&q=80', // Soaring rocket sky trail
+  'cat-6': 'https://images.unsplash.com/photo-1507508019881-3edd12850e2a?w=500&auto=format&fit=crop&q=80', // Sky multi shot repeater
+  'cat-7': 'https://images.unsplash.com/photo-1489641493513-ba4ee84ccea9?w=500&auto=format&fit=crop&q=80', // Handheld sparkler
+  'cat-8': 'https://images.unsplash.com/photo-1467810563316-b5476525c0f9?w=500&auto=format&fit=crop&q=80', // Kid novelty sparklers
+  'cat-9': 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=80'  // Gift Box assortment
+};
 
 interface LandingPageProps {
   shopDetails: ShopDetails;
@@ -50,56 +61,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Hero Banner Section (Inspired by Vediworld Festive Design with Animated Skyshot Background) */}
       <section className="relative overflow-hidden bg-slate-950 border-b border-amber-500/40 py-16 px-4 sm:px-6">
         {/* Real Firework Background Image & HTML5 Skyshot Canvas */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 bg-black">
           <img
-            src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1920&q=80"
-            alt="Fireworks Festive Display"
+            src="https://www.vediworld.com/skyshot.gif"
+            alt="Vediworld Skyshots Display"
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover object-center opacity-30 filter brightness-75 contrast-125"
+            className="w-full h-full object-cover object-center opacity-100"
           />
-          {/* Realistic Physics Skyshot Canvas Layer */}
-          <SkyshotCanvas className="opacity-85" />
-
-          {/* Dual Overlay Gradient for High Contrast Text Readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/75 to-slate-950"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,6,23,0.9)_100%)]"></div>
+          {/* Subtle bottom fade to transition to the black background, but no dark cover gradients on the GIF itself */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-950 to-transparent"></div>
         </div>
 
-        {/* Animated Firework Burst FX Layer 1 - Top Left Burst */}
-        <div className="absolute top-6 left-6 sm:left-16 pointer-events-none z-0 opacity-70 animate-firework-1">
-          <div className="relative w-32 h-32 flex items-center justify-center">
-            <div className="absolute w-24 h-24 rounded-full bg-amber-400/20 blur-xl animate-pulse-glow"></div>
-            <svg viewBox="0 0 100 100" className="w-full h-full stroke-amber-300 fill-none stroke-[1.5]">
-              <path d="M50 10 L50 90 M10 50 L90 50 M22 22 L78 78 M22 78 L78 22" strokeDasharray="4 3" />
-              <circle cx="50" cy="50" r="12" className="stroke-red-400 stroke-[2]" />
-              <circle cx="50" cy="50" r="3" className="fill-amber-300" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Animated Firework Burst FX Layer 2 - Top Right Burst */}
-        <div className="absolute top-10 right-6 sm:right-20 pointer-events-none z-0 opacity-80 animate-firework-2">
-          <div className="relative w-40 h-40 flex items-center justify-center">
-            <div className="absolute w-28 h-28 rounded-full bg-red-500/25 blur-xl animate-pulse-glow"></div>
-            <svg viewBox="0 0 100 100" className="w-full h-full stroke-red-400 fill-none stroke-[1.5]">
-              <path d="M50 5 L50 95 M5 50 L95 50 M18 18 L82 82 M18 82 L82 18" strokeDasharray="3 3" />
-              <circle cx="50" cy="50" r="20" className="stroke-amber-300 stroke-[1.5]" />
-              <circle cx="50" cy="50" r="4" className="fill-amber-400" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Animated Firework Burst FX Layer 3 - Bottom Center Sparkles */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none z-0 opacity-60 animate-sparkle-1">
-          <div className="flex items-center gap-12">
-            <Sparkles className="w-6 h-6 text-amber-300" />
-            <Sparkles className="w-8 h-8 text-red-400" />
-            <Sparkles className="w-5 h-5 text-amber-200" />
-          </div>
-        </div>
-
-        {/* Hero Main Card Container with Backdrop Blur */}
-        <div className="max-w-5xl mx-auto text-center relative z-10">
+      {/* Hero Main Card Container with Backdrop Blur */}
+      <div className="max-w-5xl mx-auto text-center relative z-10">
           {/* Top Promotional Pill */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/85 border border-amber-400/60 text-amber-300 text-xs font-bold mb-6 shadow-2xl backdrop-blur-md">
             <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
@@ -275,20 +249,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {categories.slice(0, 6).map((cat) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {categories.map((cat) => {
               const count = products.filter((p) => p.categoryId === cat.id).length;
               return (
                 <div
                   key={cat.id}
                   onClick={onGoToStore}
-                  className="bg-slate-900 border border-slate-800 hover:border-red-600/60 rounded-xl p-3 text-center cursor-pointer transition-all hover:-translate-y-1 shadow-md group"
+                  className="bg-slate-900 border border-slate-800 hover:border-red-500/50 rounded-xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1.5 shadow-lg group flex flex-col h-full"
                 >
-                  <div className="w-10 h-10 mx-auto rounded-full bg-red-950 border border-red-700/60 flex items-center justify-center text-red-400 group-hover:bg-red-600 group-hover:text-white transition-colors mb-2">
-                    <Flame className="w-5 h-5" />
+                  <div className="relative h-32 w-full overflow-hidden bg-slate-950">
+                    <img
+                      src={cat.image || CATEGORY_IMAGES[cat.id] || CATEGORY_IMAGES['cat-1']}
+                      alt={cat.name}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+                    {/* Floating category count */}
+                    <span className="absolute top-2.5 right-2.5 bg-red-600 text-white font-mono font-bold text-[10px] px-2.5 py-0.5 rounded-full shadow-md">
+                      {count} Products
+                    </span>
                   </div>
-                  <h3 className="text-xs font-bold text-white line-clamp-1">{cat.name}</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{count} Products</p>
+                  <div className="p-4 flex flex-col flex-1 justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                        {cat.name}
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                        {cat.description || 'Premium quality Sivakasi firecracker catalog'}
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
+                      <span>Browse Products</span>
+                      <ChevronRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -358,13 +354,53 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-950 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <footer className="bg-slate-950 border-t border-slate-800 pt-12 pb-8 text-xs text-slate-400">
+        <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 text-left mb-8">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Flame className="w-5 h-5 text-red-500" />
+              <h4 className="font-black text-white uppercase tracking-wider text-sm">{companyName}</h4>
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed max-w-sm">
+              {address}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px] border-b border-slate-800 pb-1">
+              Contact Details
+            </h4>
+            <div className="space-y-1.5 text-slate-400">
+              <p className="flex items-center gap-2">
+                <span className="font-bold text-slate-300">Phone:</span> {phone}
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-bold text-slate-300">WhatsApp:</span> {whatsapp}
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-bold text-slate-300">Email:</span> {email}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px] border-b border-slate-800 pb-1">
+              Quick Links
+            </h4>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={onGoToStore}
+                className="text-left text-slate-400 hover:text-amber-300 transition-colors flex items-center gap-1.5"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" /> Online Store
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto px-4 mt-8 pt-4 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
           <div>
             &copy; {new Date().getFullYear()} {companyName}. All Rights Reserved.
           </div>
-          <div className="flex items-center gap-4 text-slate-400">
-            <button onClick={onGoToStore} className="hover:text-amber-300 transition-colors">Online Store</button>
+          <div>
+            Sivakasi Firecrackers B2B Portal
           </div>
         </div>
       </footer>

@@ -12,6 +12,8 @@ interface InvoiceViewModalProps {
 export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({ invoice, onClose }) => {
   if (!invoice) return null;
 
+  const isGst = invoice.isGstBill ?? (invoice.gstAmount > 0);
+  
   const handlePrint = () => {
     printInvoicePDF(invoice);
   };
@@ -110,11 +112,12 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({ invoice, onC
                 <tr>
                   <th className="py-1.5 px-2.5">#</th>
                   <th className="py-1.5 px-2.5">SKU</th>
+                  {isGst && <th className="py-1.5 px-2.5">HSN</th>}
                   <th className="py-1.5 px-2.5">Item Description</th>
                   <th className="py-1.5 px-2.5 text-center">Qty</th>
                   <th className="py-1.5 px-2.5 text-right">Rate (₹)</th>
-                  <th className="py-1.5 px-2.5 text-right">GST %</th>
-                  <th className="py-1.5 px-2.5 text-right">GST Amt (₹)</th>
+                  {isGst && <th className="py-1.5 px-2.5 text-right">GST %</th>}
+                  {isGst && <th className="py-1.5 px-2.5 text-right">GST Amt (₹)</th>}
                   <th className="py-1.5 px-2.5 text-right">Amount (₹)</th>
                 </tr>
               </thead>
@@ -123,11 +126,12 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({ invoice, onC
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="py-1.5 px-2.5 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
                     <td className="py-1.5 px-2.5 font-mono font-bold text-red-700">{item.sku}</td>
+                    {isGst && <td className="py-1.5 px-2.5 font-mono text-slate-500">{item.hsnCode || "36041000"}</td>}
                     <td className="py-1.5 px-2.5 font-semibold text-slate-900">{item.productName}</td>
                     <td className="py-1.5 px-2.5 text-center font-mono font-bold">{item.qty}</td>
                     <td className="py-1.5 px-2.5 text-right font-mono">{formatINR(item.sellingPrice)}</td>
-                    <td className="py-1.5 px-2.5 text-right font-mono">{item.gstPercent}%</td>
-                    <td className="py-1.5 px-2.5 text-right font-mono text-slate-600">{formatINR(item.gstAmount)}</td>
+                    {isGst && <td className="py-1.5 px-2.5 text-right font-mono">{item.gstPercent}%</td>}
+                    {isGst && <td className="py-1.5 px-2.5 text-right font-mono text-slate-600">{formatINR(item.gstAmount)}</td>}
                     <td className="py-1.5 px-2.5 text-right font-mono font-bold text-red-700">
                       {formatINR(item.amount)}
                     </td>

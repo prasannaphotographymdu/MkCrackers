@@ -206,7 +206,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({
                       <div className="font-bold text-slate-900">{p.name}</div>
                       <div className="text-[10px] text-slate-500">{p.itemsPerPack}</div>
                     </td>
-                    <td className="py-1.5 px-3 text-slate-700">{p.categoryName || 'General'}</td>
+                    <td className="py-1.5 px-3 text-slate-700">{categories.find((c) => c.id === p.categoryId)?.name || p.categoryName || 'General'}</td>
                     <td className="py-1.5 px-3 text-center text-slate-600 font-mono">{p.openingStock}</td>
                     <td className="py-1.5 px-3 text-center font-bold font-mono text-slate-900">
                       {p.currentStock}

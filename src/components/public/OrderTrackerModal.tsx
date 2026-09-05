@@ -80,15 +80,19 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
         return;
       }
 
-      // Fallback to API search
+      // Fallback to Server API
       const res = await fetch(`/api/orders/track/${encodeURIComponent(q)}`);
-      const data = await res.json();
-
-      if (res.ok && data.orders && data.orders.length > 0) {
-        setResults(data.orders);
+      if (res.ok) {
+        const firestoreMatches: Enquiry[] = await res.json();
+        if (firestoreMatches.length > 0) {
+          setResults(firestoreMatches);
+        } else {
+          setResults([]);
+          setErrorMsg(`No orders found for "${q}". Please verify your Order ID or Mobile Number.`);
+        }
       } else {
         setResults([]);
-        setErrorMsg(data.message || `No orders found for "${q}". Please verify your Order ID or Mobile Number.`);
+        setErrorMsg(`No orders found for "${q}". Please verify your Order ID or Mobile Number.`);
       }
     } catch (err: any) {
       setErrorMsg('Failed to fetch tracking details. Please try again.');
@@ -120,13 +124,13 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
 
   // Helper to render Status Stepper
   const renderStatusTimeline = (status: Enquiry['status'], notes?: string) => {
-    if (status === 'Closed') {
+    if (status === 'Cancelled') {
       return (
         <div className="bg-red-950/60 border border-red-800/80 rounded-xl p-3 text-red-200 flex items-center gap-2.5 text-xs">
           <XCircle className="w-5 h-5 text-red-400 shrink-0" />
           <div>
-            <div className="font-bold text-red-300">Order Status: Cancelled / Closed</div>
-            <div className="text-[11px] text-red-300/80">This enquiry or order was closed. Please contact sales for assistance.</div>
+            <div className="font-bold text-red-300">Order Status: Cancelled</div>
+            <div className="text-[11px] text-red-300/80">This enquiry or order was cancelled. Please contact sales for assistance.</div>
           </div>
         </div>
       );
@@ -140,6 +144,12 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
         icon: Clock
       },
       {
+        key: 'Confirmed',
+        title: 'Confirmed',
+        desc: 'Order accepted',
+        icon: CheckCircle2
+      },
+      {
         key: 'Shipped',
         title: 'Shipped / Dispatched',
         desc: 'In transit via courier/transport',
@@ -147,14 +157,14 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
       },
       {
         key: 'Success',
-        title: 'Confirmed / Delivered',
-        desc: 'Order confirmed & invoice issued',
-        icon: CheckCircle2
+        title: 'Delivered',
+        desc: 'Delivered & Invoice issued',
+        icon: Sparkles
       }
     ];
 
     const currentStepIndex =
-      status === 'Pending' ? 0 : status === 'Shipped' ? 1 : status === 'Success' ? 2 : 0;
+      status === 'Pending' ? 0 : status === 'Confirmed' ? 1 : status === 'Shipped' ? 2 : status === 'Success' ? 3 : 0;
 
     return (
       <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 my-3">
@@ -162,7 +172,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
           Live Dispatch Tracking Timeline
         </div>
 
-        <div className="grid grid-cols-3 gap-2 relative">
+        <div className="grid grid-cols-4 gap-2 relative">
           {steps.map((step, idx) => {
             const Icon = step.icon;
             const isCompleted = idx <= currentStepIndex;
@@ -200,7 +210,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
             <Truck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
               <span className="font-bold text-amber-300">Dispatch / LR Info: </span>
-              <span>{notes}</span>
+              <span>{typeof notes === 'string' ? notes : JSON.stringify(notes)}</span>
             </div>
           </div>
         )}
@@ -330,19 +340,23 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
                         className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide border ${
                           order.status === 'Shipped'
                             ? 'bg-blue-950 text-blue-300 border-blue-500/50'
+                            : order.status === 'Confirmed'
+                            ? 'bg-indigo-950 text-indigo-300 border-indigo-500/50'
                             : order.status === 'Success'
                             ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
-                            : order.status === 'Closed'
+                            : order.status === 'Cancelled'
                             ? 'bg-red-950 text-red-300 border-red-500/50'
                             : 'bg-amber-950 text-amber-300 border-amber-500/50'
                         }`}
                       >
                         {order.status === 'Shipped'
                           ? 'Shipped / Dispatched'
+                          : order.status === 'Confirmed'
+                          ? 'Order Confirmed'
                           : order.status === 'Success'
-                          ? 'Confirmed & Delivered'
-                          : order.status === 'Closed'
-                          ? 'Closed'
+                          ? 'Delivered'
+                          : order.status === 'Cancelled'
+                          ? 'Cancelled'
                           : 'Order Received (Pending)'}
                       </span>
                     </div>

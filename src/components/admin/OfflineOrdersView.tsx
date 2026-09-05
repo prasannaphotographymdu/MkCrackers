@@ -232,9 +232,9 @@ export const OfflineOrdersView: React.FC<OfflineOrdersViewProps> = ({
                       {order.customerPhone && <div className="text-[10px] text-slate-400">{order.customerPhone}</div>}
                     </td>
                     <td className="py-3 px-4 text-slate-600">
-                      <span className="font-bold text-slate-900">{order.items.reduce((s, i) => s + i.qty, 0)} Pcs</span>
+                      <span className="font-bold text-slate-900">{(order.items || []).reduce((s, i) => s + i.qty, 0)} Pcs</span>
                       <span className="text-[10px] text-slate-400 block truncate max-w-[180px]">
-                        {order.items.map((i) => `${i.productName} (${i.qty})`).join(', ')}
+                        {(order.items || []).map((i) => `${i.productName} (${i.qty})`).join(', ')}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
