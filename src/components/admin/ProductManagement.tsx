@@ -402,6 +402,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
           <table className="w-full min-w-[700px] text-left text-xs text-slate-800">
             <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-tight text-[10px]">
               <tr>
+                <th className="py-2 px-3 w-12 text-center">Order</th>
                 <th className="py-2 px-3">Image</th>
                 <th className="py-2 px-3">SKU</th>
                 <th className="py-2 px-3">Product Name</th>
@@ -420,9 +421,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
                 return (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-1.5 px-3 text-center font-mono font-bold text-slate-500">
+                      {p.displayOrder ?? '-'}
+                    </td>
                     <td className="py-1.5 px-3">
                       <img
-                        src={p.image}
+                        src={p.image || undefined}
                         alt={p.name}
                         className="w-8 h-8 object-cover rounded bg-slate-100 border border-slate-200"
                       />
@@ -728,6 +732,18 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                     <option value="active">Active (Visible)</option>
                     <option value="inactive">Inactive (Hidden)</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    List Order Number
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.displayOrder ?? ''}
+                    onChange={(e) => setFormData({ ...formData, displayOrder: e.target.value ? Number(e.target.value) : undefined })}
+                    placeholder="e.g. 1"
+                    className="w-full px-2.5 py-1.5 rounded bg-slate-50 border border-slate-300 text-slate-900 text-xs focus:bg-white focus:outline-none focus:border-red-500 font-mono"
+                  />
                 </div>
               </div>
 

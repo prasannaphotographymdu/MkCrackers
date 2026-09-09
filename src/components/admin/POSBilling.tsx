@@ -420,7 +420,7 @@ export const POSBilling: React.FC<POSBillingProps> = ({
                   <div>
                     <div className="aspect-video w-full mb-2 overflow-hidden rounded-lg bg-slate-100">
                       <img
-                        src={p.image}
+                        src={p.image || undefined}
                         alt={p.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />

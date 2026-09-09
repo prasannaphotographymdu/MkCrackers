@@ -110,7 +110,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
     const offlineReport = offlineOrders.map(o => ({
       billNumber: o.billNumber,
-      date: new Date(o.date).toLocaleString(),
+      date: new Date(o.createdAt).toLocaleString(),
       customerName: o.customerName || 'Walk-in Customer',
       customerPhone: o.customerPhone || 'N/A',
       paymentMode: o.paymentMode,
@@ -122,7 +122,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     }));
 
     const gstReport = [
-      ...invoices.filter(i => i.gstAmount > 0).map(i => ({
+      ...invoices.filter(i => i.isGstBill).map(i => ({
         billNo: i.id,
         source: 'Online B2B',
         date: new Date(i.date).toLocaleDateString(),
@@ -133,10 +133,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         gstAmount: i.gstAmount,
         grandTotal: i.grandTotal
       })),
-      ...offlineOrders.filter(o => o.gstAmount > 0).map(o => ({
+      ...offlineOrders.filter(o => o.isGstBill).map(o => ({
         billNo: o.billNumber,
         source: 'POS Offline',
-        date: new Date(o.date).toLocaleDateString(),
+        date: new Date(o.date || o.createdAt).toLocaleDateString(),
         customerName: o.customerName || 'Walk-in',
         customerPhone: o.customerPhone || 'N/A',
         itemsCount: o.items.reduce((sum, item) => sum + item.qty, 0),

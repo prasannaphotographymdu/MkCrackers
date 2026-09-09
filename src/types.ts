@@ -25,6 +25,7 @@ export interface Product {
   currentStock: number;
   lowStockLimit: number;
   status: 'active' | 'inactive';
+  displayOrder?: number;
   createdAt?: string;
   updatedAt?: string;
 }

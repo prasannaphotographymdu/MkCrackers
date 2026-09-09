@@ -653,7 +653,8 @@ export async function generateStaticSKUCatalog() {
     prodSnap.forEach((docSnap) => {
       const p = docSnap.data() as Product;
       if (p.status === 'active') {
-        productsList.push({ id: docSnap.id, ...p });
+        const { image, ...productWithoutImage } = p;
+        productsList.push({ id: docSnap.id, ...productWithoutImage, image: '' } as Product);
       }
     });
 

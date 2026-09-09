@@ -77,7 +77,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {/* Top Promotional Pill */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/85 border border-amber-400/60 text-amber-300 text-xs font-bold mb-6 shadow-2xl backdrop-blur-md">
             <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-            <span className="tracking-wide">Diwali Wholesale Booking Open &bull; Save Up to 80% Off MRP</span>
+            <span className="tracking-wide">Diwali Wholesale Booking Open &bull; Save Up to 50% Off MRP</span>
           </div>
 
           {/* Main Title - Crystal Clear White with High Contrast Shadow */}
@@ -260,7 +260,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 >
                   <div className="relative h-32 w-full overflow-hidden bg-slate-950">
                     <img
-                      src={cat.image || CATEGORY_IMAGES[cat.id] || CATEGORY_IMAGES['cat-1']}
+                      src={cat.image || CATEGORY_IMAGES[cat.id] || CATEGORY_IMAGES["cat-1"] || undefined}
                       alt={cat.name}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100"

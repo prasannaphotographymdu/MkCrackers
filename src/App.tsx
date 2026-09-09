@@ -123,7 +123,8 @@ export default function App() {
       })
       .then(data => {
         if (data && Array.isArray(data) && data.length > 0) {
-          setProducts(prev => prev.length === 0 ? data : prev);
+          const sortedProducts = [...data].sort((a, b) => (a.displayOrder ?? 999999) - (b.displayOrder ?? 999999));
+          setProducts(prev => prev.length === 0 ? sortedProducts : prev);
         }
       })
       .catch(err => console.warn('REST Products fetch failed:', err));
@@ -137,7 +138,8 @@ export default function App() {
       })
       .then(data => {
         if (data && Array.isArray(data) && data.length > 0) {
-          setCategories(prev => prev.length === 0 ? data : prev);
+          const sortedCats = [...data].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+          setCategories(prev => prev.length === 0 ? sortedCats : prev);
         }
       })
       .catch(err => console.warn('REST Categories fetch failed:', err));
@@ -148,12 +150,14 @@ export default function App() {
     import('./lib/firebase').then(({ subscribeProducts, subscribeCategories }) => {
       unsubProds = subscribeProducts((liveProducts) => {
         if (liveProducts && liveProducts.length > 0) {
-          setProducts(liveProducts);
+          const sortedProducts = [...liveProducts].sort((a, b) => (a.displayOrder ?? 999999) - (b.displayOrder ?? 999999));
+          setProducts(sortedProducts);
         }
       }, (err) => console.warn('Firebase Products subscription failed', err));
       unsubCats = subscribeCategories((liveCats) => {
         if (liveCats && liveCats.length > 0) {
-          setCategories(liveCats);
+          const sortedCats = [...liveCats].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+          setCategories(sortedCats);
         }
       }, (err) => console.warn('Firebase Categories subscription failed', err));
     }).catch(err => console.warn('Firebase lazy load failed:', err));

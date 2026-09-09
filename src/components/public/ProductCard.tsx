@@ -55,7 +55,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-md overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
             <img
-              src={product.image}
+              src={product.image || undefined}
               alt={product.name}
               className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
               loading="lazy"
@@ -64,41 +64,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {product.sku}
             </div>
           </div>
-
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-tight">
+              <h3 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
                 {product.name}
               </h3>
               {isOutOfStock ? (
-                <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[9px] font-bold uppercase">
+                <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[9px] font-bold uppercase shrink-0">
                   Out
                 </span>
               ) : null}
             </div>
-
-            <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-500 mt-0.5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 text-[10px] sm:text-[11px] text-slate-500 mt-0.5">
               <span className="font-semibold text-slate-700">{product.itemsPerPack}</span>
-              <span>•</span>
-              {discountPercent > 0 ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-semibold text-slate-400 line-through text-[10px]">
-                    {formatINR(product.sellingPrice)}
-                  </span>
+              <span className="hidden sm:inline">•</span>
+              <div className="flex items-center gap-1.5">
+                {discountPercent > 0 ? (
+                  <>
+                    <span className="font-mono font-semibold text-slate-400 line-through text-[10px]">
+                      {formatINR(product.sellingPrice)}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-600 text-xs">
+                      {formatINR(discountedPrice)}
+                    </span>
+                  </>
+                ) : (
                   <span className="font-mono font-bold text-emerald-600 text-xs">
                     {formatINR(discountedPrice)}
                   </span>
-                </div>
-              ) : (
-                <span className="font-mono font-bold text-emerald-600 text-xs">
-                  {formatINR(discountedPrice)}
-                </span>
-              )}
-              {quantity > 0 && (
-                <span className="hidden xs:inline-block font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                  Sub: {formatINR(discountedPrice * quantity)}
-                </span>
-              )}
+                )}
+                {quantity > 0 && (
+                  <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 ml-1">
+                    Sub: {formatINR(discountedPrice * quantity)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -150,7 +150,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div>
         <div className="relative aspect-video sm:aspect-[4/3] w-full rounded-sm overflow-hidden bg-slate-100 mb-2 border border-slate-200">
           <img
-            src={product.image}
+            src={product.image || undefined}
             alt={product.name}
             className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
               isOutOfStock ? 'grayscale opacity-50' : ''

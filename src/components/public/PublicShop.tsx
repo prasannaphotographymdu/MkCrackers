@@ -131,7 +131,14 @@ export const PublicShop: React.FC<PublicShopProps> = ({
     const map: { [catId: string]: Product[] } = {};
 
     categories.forEach((cat) => {
-      map[cat.id] = filteredProducts.filter((p) => p.categoryId === cat.id);
+      const catProducts = filteredProducts.filter((p) => p.categoryId === cat.id);
+      // Sort products by displayOrder (products without it go to the bottom)
+      catProducts.sort((a, b) => {
+        const orderA = a.displayOrder !== undefined && a.displayOrder !== null ? a.displayOrder : 999999;
+        const orderB = b.displayOrder !== undefined && b.displayOrder !== null ? b.displayOrder : 999999;
+        return orderA - orderB;
+      });
+      map[cat.id] = catProducts;
     });
 
     return map;

@@ -323,7 +323,8 @@ async function generateStaticSKUCatalogServer() {
     prodSnap.forEach((docSnap) => {
       const p = docSnap.data() as Product;
       if (p.status === 'active') {
-        productsList.push({ id: docSnap.id, ...p });
+        const { image, ...productWithoutImage } = p;
+        productsList.push({ id: docSnap.id, ...productWithoutImage, image: '' } as Product);
       }
     });
 
@@ -383,15 +384,17 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Seed and Sync with Firestore
-  try {
-    await seedFirestoreIfEmpty();
-    syncFromFirestore();
-    
-    await generateStaticSKUCatalogServer();
-  } catch (syncErr) {
-    console.error('Firestore start synchronization notice:', syncErr);
-  }
+  // Seed and Sync with Firestore in the background
+  Promise.resolve().then(async () => {
+    try {
+      await seedFirestoreIfEmpty();
+      syncFromFirestore();
+      
+      await generateStaticSKUCatalogServer();
+    } catch (syncErr) {
+      console.error('Firestore start synchronization notice:', syncErr);
+    }
+  });
 
   // ==========================================
   // REST API ENDPOINTS
@@ -678,6 +681,7 @@ async function startServer() {
       currentStock,
       lowStockLimit,
       status,
+      displayOrder,
       hsnCode
     } = req.body;
 
@@ -709,6 +713,7 @@ async function startServer() {
       currentStock: Number(currentStock) !== undefined ? Number(currentStock) : (Number(openingStock) || 0),
       lowStockLimit: Number(lowStockLimit) || 10,
       status: status || 'active',
+      displayOrder: displayOrder !== undefined ? Number(displayOrder) : undefined,
       hsnCode: hsnCode || '36041000',
       createdAt: new Date().toISOString()
     };
@@ -751,6 +756,7 @@ async function startServer() {
       currentStock,
       lowStockLimit,
       status,
+      displayOrder,
       hsnCode
     } = req.body;
 
@@ -772,7 +778,6 @@ async function startServer() {
     if (itemsPerPack !== undefined) products[index].itemsPerPack = itemsPerPack;
     
     if (image !== undefined) products[index].image = image;
-
     if (purchasePrice !== undefined) products[index].purchasePrice = Number(purchasePrice);
     if (sellingPrice !== undefined) products[index].sellingPrice = Number(sellingPrice);
     if (discountPercent !== undefined) products[index].discountPercent = Number(discountPercent);
@@ -780,6 +785,7 @@ async function startServer() {
     if (currentStock !== undefined) products[index].currentStock = Math.max(0, Number(currentStock));
     if (lowStockLimit !== undefined) products[index].lowStockLimit = Number(lowStockLimit);
     if (status) products[index].status = status;
+    if (displayOrder !== undefined) products[index].displayOrder = displayOrder ? Number(displayOrder) : undefined;
     if (hsnCode) products[index].hsnCode = hsnCode;
     products[index].updatedAt = new Date().toISOString();
 
